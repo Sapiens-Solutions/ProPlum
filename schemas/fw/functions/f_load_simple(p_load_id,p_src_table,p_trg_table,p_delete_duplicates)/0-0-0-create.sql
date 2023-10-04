@@ -184,6 +184,7 @@ BEGIN
    when v_load_type = 'UPDATE_PARTITION' then 
      v_cnt = fw.f_load_delta_partitions(
         p_load_id         := p_load_id, 
+		p_table_from_name := v_tmp_table,
         p_table_to_name   := v_trg_table,
         p_merge_partitions:= true,
         p_where           := v_where);
