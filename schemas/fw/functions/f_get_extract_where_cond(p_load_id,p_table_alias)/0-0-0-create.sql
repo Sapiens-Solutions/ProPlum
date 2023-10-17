@@ -54,7 +54,7 @@ BEGIN
     -- replace common variables in where condition
      v_where_obj = replace(replace(replace(v_where_obj,
             '$extraction_from',''''||v_start_date||''''),
-            '$extraction__to',  ''''||v_end_date||''''),
+            '$extraction_to',  ''''||v_end_date||''''),
             '$load_id',p_load_id::text);
     end if;
    --raise notice 'v_where_obj is %', v_where_obj;
