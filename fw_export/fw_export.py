@@ -22,7 +22,7 @@ def export_schema(cur, schema_name, out_dir, params):
     print('Exporting schema ' + schema_name)
     f = open(out_dir + '\\schema.sql', mode='w+', newline='\r\n', encoding='utf-8')
     f.write(
-        rec[2].replace('SCHEMA ' + schema_name, 'SCHEMA ${target_schema}').replace('"' + rec[1] + '"', '"${owner}"' if params is True else rec[2])
+        rec[2].replace('SCHEMA ' + schema_name, 'SCHEMA ${target_schema}').replace('"' + rec[1] + '"', '"${owner}"') if params is True else rec[2]
     )
     f.close()
 
@@ -58,7 +58,7 @@ def export_sequences(cur, schema_name, out_dir, params):
         print('Exporting sequence ' + rec[1])
         f = open(out_dir + '\\sequences\\' + rec[1] + '.sql', mode='w+', newline='\r\n', encoding='utf-8')
         f.write(
-            rec[3].replace(schema_name + '.', '${target_schema}.').replace('TO "' + rec[2] + '"', 'TO "${owner}"' if params is True else rec[3])
+            rec[3].replace(schema_name + '.', '${target_schema}.').replace('TO "' + rec[2] + '"', 'TO "${owner}"') if params is True else rec[3]
         )
         f.close()
 
@@ -173,7 +173,7 @@ def export_functions(cur, schema_name, out_dir, params):
         print('Exporting function ' + rec[1])
         f = open(out_dir + '\\functions\\' + rec[1] + '.sql', mode='w+', newline='\r\n', encoding='utf-8')
         f.write(
-            rec[3].replace(schema_name + '.', '${target_schema}.').replace('TO "' + rec[2] + '"', 'TO "${owner}"' if params is True else rec[3])
+            rec[3].replace(schema_name + '.', '${target_schema}.').replace('TO "' + rec[2] + '"', 'TO "${owner}"') if params is True else rec[3]
         )
         f.close()
 
@@ -355,7 +355,9 @@ def export_table_data(cur, schema_name, out_dir, params):
         f = open(out_dir + '\\tables\\' + rec[1] + '-data.sql', mode='w+', newline='\r\n', encoding='utf-8')
 
         if len(data_recs) > 0:
-            f.write(rec[2].replace(schema_name + '.', '${target_schema}.') + '\n' if params is True else rec[2])
+            f.write(
+                (rec[2].replace(schema_name + '.', '${target_schema}.') if params is True else rec[2]) + '\n'
+            )
             for data_rec in data_recs:
                 f.write('\t' + str(data_rec).replace('None', 'NULL'))
                 if data_recs[-1] == data_rec:
