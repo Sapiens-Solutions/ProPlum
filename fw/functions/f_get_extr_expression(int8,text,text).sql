@@ -31,7 +31,7 @@ BEGIN
   v_source_table = ${target_schema}.f_unify_name(p_name := p_source_table); -- source table name
   v_trg_table = coalesce(${target_schema}.f_unify_name(p_name := p_trg_table),${target_schema}.f_get_delta_table_name(p_load_id := p_load_id));
   v_where := ${target_schema}.f_get_extract_where_cond(p_load_id := p_load_id);
-  select 'select '|| string_agg(coalesce(v_transform->>c.column_name,c.column_name)||' '||c.column_name,',' order by c.ordinal_position) ||' from '||v_source_table ||' where ('||v_where||' ) '||coalesce(v_transform->>'additional','') from information_schema.columns c 
+  select 'select '|| string_agg(coalesce(v_transform->>c.column_name,c.column_name)||' '|| case when upper(c.data_type) = 'ARRAY' then '::'||c.udt_name else '' end ||' "'|| c.column_name ||'"',',' order by c.ordinal_position) ||' from '||v_source_table ||' where ('||v_where||' ) '||coalesce(v_transform->>'additional','') from information_schema.columns c 
    where c.table_schema||'.'||c.table_name = v_trg_table
    into v_sql;
  

@@ -30,10 +30,10 @@ BEGIN
   v_ext_table_name = ${target_schema}.f_get_ext_table_name(p_load_id := p_load_id);
   v_tmp_table_name = ${target_schema}.f_get_delta_table_name(p_load_id := p_load_id);
  
-  select 'select '|| string_agg(coalesce(v_transform->>c.column_name,c.column_name)||' '||c.column_name,',' order by c.ordinal_position) ||' from '||v_ext_table_name from information_schema.columns c 
-   where c.table_schema||'.'||c.table_name = v_tmp_table_name
-   into v_sql;
- 
+  select 'select '|| string_agg(coalesce(v_transform->>c.column_name,c.column_name)||'' || case when upper(c.data_type) = 'ARRAY' then '::'||c.udt_name else '' end ||' "'|| c.column_name ||'"',',' order by c.ordinal_position) 
+     ||' from '||v_ext_table_name from information_schema.columns c 
+  where c.table_schema||'.'||c.table_name = v_tmp_table_name
+  into v_sql;
   perform ${target_schema}.f_write_log(
      p_log_type    := 'SERVICE', 
      p_log_message := 'END Get load expression for load_id = '||p_load_id||', load sql is: '||coalesce(v_sql,'{empty}'), 

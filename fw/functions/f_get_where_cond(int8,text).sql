@@ -35,8 +35,8 @@ BEGIN
    v_alias = coalesce(p_table_alias||'.','');
     -- Get table load type
    v_sql := 'select ob.object_name, coalesce(li.load_type, ob.load_type), li.load_from, li.load_to,
-             ob.delta_field, coalesce(ob.delta_field_format,''YYYY-MM-DD hh:mi:ss''), 
-             ob.bdate_field, coalesce(ob.bdate_field_format,''YYYY-MM-DD hh:mi:ss''), ob.object_id 
+             ob.delta_field, coalesce(ob.delta_field_format,''YYYY-MM-DD hh24:mi:ss''), 
+             ob.bdate_field, coalesce(ob.bdate_field_format,''YYYY-MM-DD hh24:mi:ss''), ob.object_id 
              from ${target_schema}.load_info li, ${target_schema}.objects ob where li.object_id = ob.object_id and li.load_id = '||p_load_id::text;
    execute v_sql into v_full_table_name, v_load_type, v_start_date, v_end_date, v_delta_fld, v_delta_fld_format, v_bdate_fld, v_bdate_fld_format,v_object_id;
    v_full_table_name  = ${target_schema}.f_unify_name(p_name := v_full_table_name); -- full table name
