@@ -70,6 +70,16 @@ BEGIN
      p_table_to := v_tmp_table, 
      p_sql      := v_extr_sql, 
      p_truncate_tgt := true);
+  if v_cnt is null then 
+    raise notice 'ERROR Load object with load_id = %',p_load_id;
+    PERFORM ${target_schema}.f_write_log(
+       p_log_type    := 'ERROR', 
+       p_log_message := 'Load object with load_id = '||p_load_id||' finished with error', 
+       p_location    := v_location,
+       p_load_id     := p_load_id);
+    perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
+    return false;
+  end if;
   perform ${target_schema}.f_write_log(
      p_log_type    := 'SERVICE', 
      p_log_message := 'Extraction from  '||v_src_table||' into table '||v_tmp_table||', '|| v_cnt||' rows extracted', 
