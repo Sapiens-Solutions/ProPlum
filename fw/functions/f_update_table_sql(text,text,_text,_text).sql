@@ -70,7 +70,7 @@ begin
      p_log_type    := 'ERROR', 
      p_log_message := 'update table '|| v_table_to_name||' from sql: '||p_sql||' finished with error'', ERROR: '||SQLERRM, 
      p_location    := v_location);
-   return false;
+   return null;
  
 END;
 
