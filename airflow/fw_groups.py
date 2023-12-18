@@ -4,7 +4,7 @@ from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.exceptions import TaskNotFound
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from psycopg2.extras import RealDictCursor
-from constants import adwh_conn_id, max_parallel_tasks
+from fw_constants import adwh_conn_id, max_parallel_tasks
 from fw_tasks import gen_load_id, execute_function, calc_data, file_load_data
 from airflow.providers.ssh.operators.ssh import SSHOperator
 from airflow.operators.bash_operator import BashOperator
