@@ -345,6 +345,10 @@ databaseChangeLog:
             path:  .\fw\functions\f_write_log(text,text,text,int8).sql
             splitStatements: false
             stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_create_obj_sql(text, text, text, text, bool, text, bool, bool, text).sql
+            splitStatements: false
+            stripComments: false
 
   -  changeSet:
       id:  etl-extentions
