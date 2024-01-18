@@ -242,7 +242,8 @@ def export_tables(cur, schema_name, out_dir, params):
             tabname,
             E')\nDISTRIBUTED ' ||
             case 
-                when policytype = 'p' then 'BY (' || string_agg(attname, ', ') || E');\n'
+                when policytype = 'p' and attname is not null then 'BY (' || string_agg(attname, ', ') || E');\n'
+                when policytype = 'p' and attname is null then E'RANDOMLY;\n'
                 when policytype = 'r' then E'REPLICATED;\n'
                 else '!!!DISTRIBUTION TYPE NOT SUPPOTED!!!'
             end as dist
@@ -257,7 +258,7 @@ def export_tables(cur, schema_name, out_dir, params):
         left join pg_attribute a
             on dist.localoid = a.attrelid
             and dist.distkey = a.attnum::text
-        group by tabname, policytype
+        group by tabname, policytype, attname
     ),
     rules as (
         select 
