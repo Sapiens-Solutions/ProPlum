@@ -13,6 +13,7 @@ DECLARE
     v_location            text := '${target_schema}.f_extract_data';
     v_extraction_type     text;
     v_extraction_to       timestamp;
+    v_extraction_from     timestamp;
     v_tmp_table_name      text;
     v_ext_table_name      text;
     v_delta_field         text;
@@ -39,10 +40,11 @@ BEGIN
                 when ''PARTITION'' then ob.bdate_field
                 else null::text
               end,
-              li.extraction_to
+              li.extraction_to,
+			  li.extraction_from
               from ${target_schema}.load_info li, ${target_schema}.objects ob where li.object_id = ob.object_id and li.load_id = ' ||
              p_load_id::text;
-    execute v_sql into v_extraction_type, v_delta_field, v_extraction_to;
+    execute v_sql into v_extraction_type, v_delta_field, v_extraction_to, v_extraction_from;
     v_tmp_table_name = ${target_schema}.f_get_delta_table_name(p_load_id := p_load_id);
     v_ext_table_name = ${target_schema}.f_get_ext_table_name(p_load_id := p_load_id);
     v_where = ${target_schema}.f_get_extract_where_cond(p_load_id := p_load_id);
@@ -56,10 +58,17 @@ BEGIN
            p_sql      := v_sql); --load from ext to stage (delta) table
         if v_cnt is not null then
          v_res = true;
-         perform ${target_schema}.f_update_load_info(
-            p_load_id    := p_load_id, 
-            p_field_name := 'extraction_to', 
-            p_value      := coalesce(${target_schema}.f_get_max_value(v_tmp_table_name,v_delta_field),v_extraction_to::text));
+		 if v_cnt = 0 then -- in case of empty delta
+           perform ${target_schema}.f_update_load_info(
+             p_load_id    := p_load_id, 
+             p_field_name := 'extraction_to', 
+             p_value      := v_extraction_from::text);
+         else
+           perform ${target_schema}.f_update_load_info(
+             p_load_id    := p_load_id, 
+             p_field_name := 'extraction_to', 
+             p_value      := coalesce(${target_schema}.f_get_max_value(v_tmp_table_name,v_delta_field),v_extraction_to::text));
+         end if;
         else 
          v_res = false;
         end if;
