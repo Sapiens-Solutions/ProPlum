@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_create_date_partitions(p_table_nam
 	LANGUAGE plpgsql
 	VOLATILE
 AS $$
+	
 	/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -11,8 +12,8 @@ DECLARE
   v_location            text := '${target_schema}.f_create_date_partitions';
   v_cnt_partitions      int;
   v_table_name          text;
-  v_partition_name      text;
   v_error               text;
+  v_partition_name      text;
   v_partition_end_sql   text;
   v_partition_end       timestamp;
   v_partition_delta_sql text;
@@ -71,7 +72,7 @@ BEGIN
       -- Execute strings to timestamps
       EXECUTE 'SELECT '||v_partition_end_sql INTO v_partition_end;
       EXECUTE 'SELECT '||v_partition_delta_sql INTO v_partition_delta;
-         
+
       PERFORM ${target_schema}.f_write_log(
          p_log_type    := 'DEBUG', 
          p_log_message := 'v_partition_end:{'||v_partition_end||'}', 
@@ -80,27 +81,20 @@ BEGIN
          p_log_type    := 'DEBUG', 
          p_log_message := 'v_partition_delta:{'||v_partition_delta||'}', 
          p_location    := v_location);
-        
+
       -- IF partition exists, THEN exit
       EXIT when v_partition_end > p_partition_value;
 
-      -- Define partition interval and name
+      -- Define partition interval
       IF v_partition_delta between '28 days'::interval and '31 days'::interval THEN
         v_interval := '1 month'::interval;
-        EXECUTE 'SELECT to_char('||v_partition_end_sql||',''mm_yyyy'')' INTO v_partition_name;
-        v_partition_name := 'm_'||v_partition_name;
-      ELSIF v_partition_delta = '7 days'::interval THEN
-        v_interval := '1 week'::interval;
-        EXECUTE 'SELECT to_char('||v_partition_end_sql||',''ww_yyyy'')' INTO v_partition_name;
-        v_partition_name := 'w_'||v_partition_name;       
-      ELSIF v_partition_delta = '1 days'::interval THEN
+        v_partition_name = 'm_'||to_char(v_partition_end,'mm_yyyy');
+      ELSIF v_partition_delta < '28 days'::interval THEN
         v_interval := '1 day'::interval;
-        EXECUTE 'SELECT to_char('||v_partition_end_sql||',''dd_mm_yyyy'')' INTO v_partition_name;
-        v_partition_name := 'd_'||v_partition_name;
-      ELSIF v_partition_delta between '365 days'::interval and '366 days'::interval THEN
+        v_partition_name = 'd_'||to_char(v_partition_end,'dd_mm_yyyy');
+      ELSIF v_partition_delta > '32 days'::interval THEN
         v_interval := '1 year'::interval;
-        EXECUTE 'SELECT to_char('||v_partition_end_sql||',''yyyy'')' INTO v_partition_name;
-        v_partition_name := 'y_'||v_partition_name;
+        v_partition_name = 'y_'||to_char(v_partition_end,'yyyy');
       ELSE
         v_error := 'Unable to define partition interval ';
         PERFORM ${target_schema}.f_write_log('ERROR', 'Error while creating partition in table '||p_table_name||':'||v_error, v_location);
@@ -112,9 +106,9 @@ BEGIN
          p_log_message := 'v_interval:{'||v_interval||'}', 
          p_location    :=  v_location);
       -- Add partition
+      --EXECUTE 'ALTER TABLE '||v_table_name||' SPLIT DEFAULT PARTITION START ('||v_partition_end_sql||') END ('''||to_char(v_partition_end+v_interval, v_ts_format)||'''::timestamp)';
       EXECUTE 'ALTER TABLE '||v_table_name||' SPLIT DEFAULT PARTITION START ('||v_partition_end_sql||') END ('''||to_char(v_partition_end+v_interval, v_ts_format)||'''::timestamp)
       INTO (PARTITION '||v_partition_name||', default partition)';
-     
       PERFORM ${target_schema}.f_write_log(
          p_log_type    := 'SERVICE', 
          p_log_message := 'Created partition '||v_partition_end_sql||' for table '||v_table_name, 

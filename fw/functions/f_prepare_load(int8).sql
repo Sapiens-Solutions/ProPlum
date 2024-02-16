@@ -4,7 +4,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_prepare_load(p_load_id int8)
 	SECURITY DEFINER
 	VOLATILE
 AS $$
-	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -24,6 +23,7 @@ AS $$
 	  v_ext_prefix      text;
 	  v_ext_suffix      text;
 	  v_res             bool;
+	  v_load_id_stage   bool;
  	BEGIN
     --Log
     perform ${target_schema}.f_write_log(
@@ -56,12 +56,16 @@ AS $$
       ${target_schema}.f_get_constant(
       p_constant_name := 'c_delta_table_prefix'),
       'delta_');
-    v_tmp_suffix = '_'||p_load_id::text; 
     v_ext_prefix = coalesce(
       ${target_schema}.f_get_constant(
       p_constant_name := 'c_ext_table_prefix'),
       'ext_');
-    v_ext_suffix = '_'||p_load_id::text;
+     v_load_id_stage = coalesce(
+      ${target_schema}.f_get_constant(
+      p_constant_name := 'c_load_id_stage')::bool,
+      false);
+     v_ext_suffix = decode(v_load_id_stage,true,'_'||p_load_id,'');
+     v_tmp_suffix = decode(v_load_id_stage,true,'_'||p_load_id,'');
     perform ${target_schema}.f_write_log(
        p_log_type    := 'SERVICE', 
        p_log_message := 'Check variables:  v_tmp_schema_name: '||coalesce(v_tmp_schema_name,'{empty}'), 
@@ -125,7 +129,6 @@ AS $$
      perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
      return false;
 END;
-
 
 $$
 EXECUTE ON ANY;

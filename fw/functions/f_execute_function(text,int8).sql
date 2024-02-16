@@ -3,7 +3,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_execute_function(p_function_name t
 	LANGUAGE plpgsql
 	VOLATILE
 AS $$
-	
 	/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -49,7 +48,7 @@ BEGIN
     v_sql := 'select ob.object_name, coalesce(li.extraction_type, ob.extraction_type), coalesce(li.load_type, ob.load_type), li.load_from, li.load_to, li.extraction_from, li.extraction_to, ob.object_id 
               from ${target_schema}.load_info li, ${target_schema}.objects ob where li.object_id = ob.object_id and li.load_id = ' ||p_load_id::text;
     execute v_sql into v_full_table_name, v_extraction_type, v_load_type, v_start_date, v_end_date, v_extr_from, v_extr_to, v_object_id;
-    v_sql = 'select '||replace(replace(replace(replace(replace(replace(replace(replace(v_function_name,
+    v_sql = 'select '||replace(replace(replace(replace(replace(replace(replace(replace(replace(v_function_name,
                                                     '$load_from',''''||coalesce(v_start_date,'1000-01-01')::text||''''),
                                                     '$load_to',''''||coalesce(v_end_date,'9999-12-31')::text||''''),
                                                     '$extraction_from',''''||coalesce(v_extr_from,'1000-01-01')::text||''''),
@@ -57,7 +56,8 @@ BEGIN
                                                     '$load_id',p_load_id::text),
                                                     '$load_type',''''||v_load_type::text||''''),
                                                     '$extraction_type',''''||v_extraction_type::text||''''),
-                                                    '$object_id',v_object_id::text);
+                                                    '$object_id',v_object_id::text),
+                                                    '$current_date',''''||current_date::text||'''');
   else 
     v_sql = 'select '||v_function_name||'::text';
   end if;
@@ -88,8 +88,6 @@ BEGIN
         p_location    := v_location);
      return false;  
 END;
-
-
 $$
 EXECUTE ON ANY;
 

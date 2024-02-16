@@ -4,4 +4,5 @@ INSERT INTO ${target_schema}.load_constants (constant_name, constant_type, const
 	('c_delta_table_prefix', 'text', 'delta_'),
 	('c_ext_table_prefix', 'text', 'ext_'),
 	('c_log_fdw_server', 'text', 'adwh_server'),
-	('c_stg_table_schema', 'text', 'stg_');
+	('c_stg_table_schema', 'text', 'stg_'),
+	('c_load_id_stage', 'bool', 'false');

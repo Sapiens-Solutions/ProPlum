@@ -4,7 +4,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_load_data(p_load_id int8)
 	SECURITY DEFINER
 	VOLATILE
 AS $$
-	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -23,6 +22,7 @@ DECLARE
     v_bdate_fld           text;
     v_res                 bool;
     v_cnt                 int8;
+    v_load_function       text;
     v_repeat_interval     int4 := 60;
     v_repeat_count        int4 := 20;
 BEGIN
@@ -36,10 +36,10 @@ BEGIN
        p_param_value := p_load_id::text);
       
     -- Get table load type
-    v_sql := 'select ob.object_name, coalesce(li.load_type, ob.load_type), li.extraction_from, li.extraction_to, ob.delta_field, ob.bdate_field, ob.bdate_field_format
+    v_sql := 'select ob.object_name, coalesce(li.load_type, ob.load_type), li.extraction_from, li.extraction_to, ob.delta_field, ob.bdate_field, ob.bdate_field_format, ob.load_function_name
               from ${target_schema}.load_info li, ${target_schema}.objects ob where li.object_id = ob.object_id and li.load_id = ' ||
              p_load_id::text;
-    execute v_sql into v_full_table_name, v_load_type, v_start_date, v_end_date, v_delta_fld, v_bdate_fld;
+    execute v_sql into v_full_table_name, v_load_type, v_start_date, v_end_date, v_delta_fld, v_bdate_fld, v_load_function;
     v_full_table_name  = ${target_schema}.f_unify_name(p_name := v_full_table_name); -- full table name
     v_tmp_table_name   = ${target_schema}.f_get_delta_table_name(p_load_id := p_load_id);
     v_partition_key    = ${target_schema}.f_get_partition_key(p_table_name := v_full_table_name);
@@ -235,17 +235,7 @@ BEGIN
         return false;
     END IF;  
 
-    if v_res is true then
-      PERFORM ${target_schema}.f_set_load_id_success(p_load_id := p_load_id);
-      perform ${target_schema}.f_delete_load_lock(p_load_id :=  p_load_id);
-      -- Log Success
-      perform ${target_schema}.f_write_log(
-         p_log_type := 'SERVICE', 
-         p_log_message := 'END load data into table '||v_full_table_name||' for load_id = '|| p_load_id||', '|| v_cnt|| ' rows loaded',
-         p_location    := v_location,
-         p_load_id     := p_load_id); --log function call
-      return v_res;
-    else 
+    if v_res is false then
       PERFORM ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);
       perform ${target_schema}.f_delete_load_lock(p_load_id :=  p_load_id);
       -- Log errors
@@ -256,6 +246,37 @@ BEGIN
          p_load_id     := p_load_id); --log function call
       return false;
      end if;
+--if load_function_name is not empty (end routine)
+     if v_load_function is not null and replace(v_load_function,' ','') <> '' then
+      perform ${target_schema}.f_write_log(
+         p_log_type := 'SERVICE', 
+         p_log_message := 'START Trying to run function '|| v_load_function, 
+         p_location    := v_location,
+         p_load_id     := p_load_id); --log function call
+      v_res = ${target_schema}.f_load_object(p_load_id);
+     end if;
+    
+    if v_res is true then
+      PERFORM ${target_schema}.f_set_load_id_success(p_load_id := p_load_id);
+      perform ${target_schema}.f_delete_load_lock(p_load_id :=  p_load_id);
+      -- Log Success
+      perform ${target_schema}.f_write_log(
+         p_log_type := 'SERVICE', 
+         p_log_message := 'END load data into table '||v_full_table_name||' for load_id = '|| p_load_id||', '|| v_cnt|| ' rows loaded',
+         p_location    := v_location,
+         p_load_id     := p_load_id); --log function call
+    else 
+      PERFORM ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);
+      perform ${target_schema}.f_delete_load_lock(p_load_id :=  p_load_id);
+      -- Log errors
+      perform ${target_schema}.f_write_log(
+         p_log_type := 'SERVICE', 
+         p_log_message := 'END load data into table ' || v_full_table_name||' finished with error', 
+         p_location    := v_location,
+         p_load_id     := p_load_id); --log function call
+      return false;
+    end if;
+    return v_res;
     exception when others then 
      raise notice 'ERROR loading table %: %',v_full_table_name,SQLERRM;
      perform ${target_schema}.f_delete_load_lock(p_load_id :=  p_load_id);
@@ -267,8 +288,6 @@ BEGIN
      perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
      return false;
 END;
-
-
 
 $$
 EXECUTE ON ANY;

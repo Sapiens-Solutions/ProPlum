@@ -3,7 +3,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_load_simple(p_load_id int8, p_src_
 	LANGUAGE plpgsql
 	VOLATILE
 AS $$
-    
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -20,9 +19,11 @@ DECLARE
   v_extraction_type text;
   v_load_type text;
   v_res       bool;
+  v_start_date timestamp;
   v_end_date  timestamp;
   v_delta_fld text;
   v_bdate_fld text;
+  v_extr_fld  text;
   v_load_from timestamp;
   v_load_to   timestamp;
   v_where     text;
@@ -33,12 +34,17 @@ BEGIN
  perform ${target_schema}.f_set_session_param(
     p_param_name := '${target_schema}.load_id', 
     p_param_value := p_load_id::text);
- select ob.object_id, ob.object_name, li.extraction_type, li.load_type,li.load_to,ob.delta_field,ob.bdate_field, li.load_from, li.load_to
+ select ob.object_id, ob.object_name, li.extraction_type, li.load_type, li.extraction_from, 
+        li.extraction_to,ob.delta_field,ob.bdate_field, li.load_from, li.load_to,
+        case 
+	     when li.extraction_type = 'PARTITION' then ob.bdate_field
+         else ob.delta_field 
+        end as extr_fld
    from ${target_schema}.objects ob  inner join 
         ${target_schema}.load_info li 
      on ob.object_id = li.object_id    
    where li.load_id  = p_load_id
-   into v_object_id, v_trg_table, v_extraction_type, v_load_type, v_end_date,v_delta_fld,v_bdate_fld,v_load_from,v_load_to; -- get object_id, target table, load_type
+   into v_object_id, v_trg_table, v_extraction_type, v_load_type, v_start_date, v_end_date,v_delta_fld,v_bdate_fld,v_load_from,v_load_to,v_extr_fld; -- get object_id, target table, load_type
   v_src_table  = ${target_schema}.f_unify_name(p_name := p_src_table);
   v_trg_table  = coalesce(${target_schema}.f_unify_name(p_name := p_trg_table),v_trg_table);
   v_schema     = ${target_schema}.f_get_table_schema(p_table := v_trg_table);
@@ -80,19 +86,24 @@ BEGIN
     perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
     return false;
   end if;
+ 
   perform ${target_schema}.f_write_log(
      p_log_type    := 'SERVICE', 
      p_log_message := 'Extraction from  '||v_src_table||' into table '||v_tmp_table||', '|| v_cnt||' rows extracted', 
      p_location    := v_location,
      p_load_id     := p_load_id); --log function call
-  if v_cnt is not null then
+  if v_cnt > 0 then
      v_res = true;
      perform ${target_schema}.f_update_load_info(
         p_load_id    := p_load_id, 
         p_field_name := 'extraction_to', 
-        p_value      := coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld)));
-  else 
-     v_res = false;
+        p_value      := least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_extr_fld)::timestamp, v_end_date),v_end_date));
+  else -- zero records returned from source, fix delta on start date
+     v_res = true;
+     perform ${target_schema}.f_update_load_info(
+        p_load_id    := p_load_id, 
+        p_field_name := 'extraction_to',
+        p_value      := v_start_date);
   end if;
   --load data from stage into target
   --v_where = coalesce(${target_schema}.f_get_where_clause(p_object_id := v_object_id),'1=1');
@@ -110,11 +121,11 @@ BEGIN
         p_trg_table := v_trg_table,
         p_delete_duplicates := p_delete_duplicates,
         p_where     := v_where);
-     v_end_date = least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld,v_where)::timestamp,v_end_date),v_end_date);
-     perform ${target_schema}.f_update_load_info(
-        p_load_id    := p_load_id,
-        p_field_name := 'load_to',
-        p_value      := v_end_date::text);
+     --v_end_date = least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld,v_where)::timestamp,v_end_date),v_end_date);
+     --perform ${target_schema}.f_update_load_info(
+     --   p_load_id    := p_load_id,
+     --   p_field_name := 'load_to',
+     --   p_value      := v_end_date::text);
    when v_load_type = 'PARTITION' then 
      v_cnt = ${target_schema}.f_load_delta_partitions(
         p_load_id         := p_load_id, 
@@ -243,7 +254,6 @@ BEGIN
    perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
    return false;
 END;
-
 
 $$
 EXECUTE ON ANY;

@@ -181,8 +181,8 @@ def export_functions(cur, schema_name, out_dir, params):
 def export_tables(cur, schema_name, out_dir, params):
     sql = f"""
     with attr as (
-        select 
-            attrelid::regclass::text as tabname,
+        select
+            replace(attrelid::regclass::text,'"','') as tabname,
             'CREATE TABLE ' || attrelid::regclass || E' (\n' ||
             string_agg(
                 E'\t' || 
@@ -200,6 +200,7 @@ def export_tables(cur, schema_name, out_dir, params):
         where 
             not a.attisdropped
             and a.attnum > 0
+            and replace(attrelid::regclass::text,'"','') like 'load_hybris.%'
         group by attrelid::regclass
     ),
     constr as (
@@ -208,7 +209,7 @@ def export_tables(cur, schema_name, out_dir, params):
             string_agg(constr, E',\n' order by contype desc, conname asc) || E'\n' as constr
         from (
             select
-                conrelid::regclass::text as tabname,
+                replace(conrelid::regclass::text ,'"','') as tabname,
                 conname,
                 contype,
                 case contype
@@ -242,15 +243,15 @@ def export_tables(cur, schema_name, out_dir, params):
             tabname,
             E')\nDISTRIBUTED ' ||
             case 
-                when policytype = 'p' and attname is not null then 'BY (' || string_agg(attname, ', ') || E');\n'
-                when policytype = 'p' and attname is null then E'RANDOMLY;\n'
-                when policytype = 'r' then E'REPLICATED;\n'
+                when policytype = 'p' and attname is not null then 'BY (' || string_agg(attname, ', ') || E')\n'
+                when policytype = 'p' and attname is null then E'RANDOMLY\n'
+                when policytype = 'r' then E'REPLICATED\n'
                 else '!!!DISTRIBUTION TYPE NOT SUPPOTED!!!'
             end as dist
         from (
             select
                 localoid,
-                localoid::regclass::text as tabname,
+                replace(localoid::regclass::text ,'"','') as tabname,
                 policytype,
                 case when distkey::text = '' then unnest(array[''::text]) else unnest(string_to_array(distkey::text, ' ')) end as distkey
             from gp_distribution_policy
@@ -268,35 +269,66 @@ def export_tables(cur, schema_name, out_dir, params):
         group by 1
     ),
     perm as (
-        select
-            c.oid::regclass::text as tabname,
-            rolname,
-            E'\n-- Permissions\n\n' ||
-            'ALTER TABLE ' || c.oid::regclass || ' OWNER TO "' || rolname || E'";\n' ||
-            'GRANT ALL ON TABLE ' || c.oid::regclass || ' TO "' || rolname || E'";' as perm
-        from pg_class c
-        left join pg_roles r
-            on c.relowner = r.oid
-    )
-    select
-        (string_to_array(attr.tabname, '.'))[1] as schema_name,
-        (string_to_array(attr.tabname, '.'))[2] as table_name,
-        perm.rolname as owner_name,
-        attr || case when constr is null then E'\n' else E',\n' || constr end || dist || coalesce(rules, '') || perm as create_sql
-    from attr 
-    left join constr on attr.tabname = constr.tabname
-    join dist on attr.tabname = dist.tabname
-    left join rules on attr.tabname = rules.tabname
-    join perm on attr.tabname = perm.tabname
-    where attr.tabname like '{schema_name + '.%'}'
-    order by attr.tabname
+select a.tabname, rolname, perm || priv as perm from ( 
+select
+    replace( c.oid::regclass::text,'"','') as tabname,
+    rolname,
+    E'\n-- Permissions\n\n' ||
+    'ALTER TABLE ' || c.oid::regclass || ' OWNER TO "' || rolname || E'";\n' as perm --||
+   -- 'GRANT ALL ON TABLE ' || c.oid::regclass || ' TO "' || rolname || E'";' as perm
+from pg_class c
+left join pg_roles r
+    on c.relowner = r.oid          
+) as a       
+left join 
+(
+	select tabname, string_agg(priv,'') as priv
+	from
+	(select table_schema|| '.' || table_name as tabname, 'GRANT '||string_agg(privilege_type,', ') || ' ON TABLE ' || table_schema ||'.'|| table_name || ' TO "' || grantee || E'";\n' as priv  
+	           from information_schema.role_table_grants 
+	           group by table_schema, table_name ,grantee) as b           
+	group by 1 
+) as b 
+      on a.tabname = b.tabname
+    ),
+    ddl as (
+    	select
+	    	dist,
+	    	reloptions,
+	    	attr.tabname,
+	        (string_to_array(attr.tabname, '.'))[1] as schema_name,
+	        (string_to_array(attr.tabname, '.'))[2] as table_name,
+	        perm.rolname as owner_name,
+	        attr || case when constr is null then E'\n' else E',\n' || constr end || E'\n' || coalesce(rules, '') as create_sql,
+	        perm,
+	        partit
+	    from attr 
+	    left join constr on attr.tabname = constr.tabname
+	    join dist on attr.tabname = dist.tabname
+	    left join rules on attr.tabname = rules.tabname
+	    join perm on attr.tabname = perm.tabname    
+	    left join (select table_schema||'.'||table_name as tabname, pg_get_partition_def((table_schema||'.'||table_name)::regclass, true, false) as partit
+		from information_schema.tables) as sub	
+			on sub.tabname = attr.tabname    
+	left join(
+		 select
+		 nspname||'.'||relname as sh_tab_name, reloptions FROM pg_catalog.pg_class c 
+	    JOIN pg_catalog.pg_namespace n 
+		    ON n.oid = c.relnamespace WHERE nspname ILIKE '{schema_name}') as a
+		    on a.sh_tab_name = attr.tabname
+	where attr.tabname like '{schema_name + '.%'}' 
+    and attr.tabname not like '%_prt_%'
+    order by attr.tabname)
+select schema_name, table_name, owner_name, create_sql || case when reloptions is null then '' else 'WITH ('|| E'\n' || array_to_string(ARRAY(select unnest(array[reloptions])), E',\n') ||E'\n' end || dist || case when partit is null then '' else partit || ';' end || E'\n' || perm  as create_sql  
+from ddl
     """
 
     cur.execute(sql)
     for rec in cur.fetchall():
         print('Exporting table ' + rec[1])
         f = open(out_dir + '\\tables\\' + rec[1] + '.sql', mode='w+', newline='\r\n', encoding='utf-8')
-        f.write(
+        if rec[3]:
+            f.write(
             rec[3].replace(schema_name + '.', '${target_schema}.').replace('TO "' + rec[2] + '"', 'TO "${owner}"') if params is True else rec[3]
         )
         f.close()
