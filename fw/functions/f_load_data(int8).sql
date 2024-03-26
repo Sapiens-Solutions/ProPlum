@@ -36,7 +36,7 @@ BEGIN
        p_param_value := p_load_id::text);
       
     -- Get table load type
-    v_sql := 'select ob.object_name, coalesce(li.load_type, ob.load_type), li.extraction_from, li.extraction_to, ob.delta_field, ob.bdate_field, ob.bdate_field_format, ob.load_function_name
+    v_sql := 'select ob.object_name, coalesce(li.load_type, ob.load_type), li.extraction_from, li.extraction_to, ob.delta_field, ob.bdate_field, ob.load_function_name
               from ${target_schema}.load_info li, ${target_schema}.objects ob where li.object_id = ob.object_id and li.load_id = ' ||
              p_load_id::text;
     execute v_sql into v_full_table_name, v_load_type, v_start_date, v_end_date, v_delta_fld, v_bdate_fld, v_load_function;
