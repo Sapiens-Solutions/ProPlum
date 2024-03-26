@@ -97,13 +97,13 @@ BEGIN
      perform ${target_schema}.f_update_load_info(
         p_load_id    := p_load_id, 
         p_field_name := 'extraction_to', 
-        p_value      := least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_extr_fld)::timestamp, v_end_date),v_end_date));
+        p_value      := least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_extr_fld)::timestamp, v_end_date),v_end_date)::text);
   else -- zero records returned from source, fix delta on start date
      v_res = true;
      perform ${target_schema}.f_update_load_info(
         p_load_id    := p_load_id, 
         p_field_name := 'extraction_to',
-        p_value      := v_start_date);
+        p_value      := v_start_date::text);
   end if;
   --load data from stage into target
   --v_where = coalesce(${target_schema}.f_get_where_clause(p_object_id := v_object_id),'1=1');
