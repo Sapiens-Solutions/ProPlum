@@ -1,8 +1,8 @@
-CREATE OR REPLACE FUNCTION ${target_schema}.f_load_simple_update(p_load_id int8, p_src_table text, p_trg_table text DEFAULT NULL::text, p_where text DEFAULT NULL::text, p_delete_duplicates bool default false::bool)
+CREATE OR REPLACE FUNCTION ${target_schema}.f_load_simple_update(p_load_id int8, p_src_table text, p_trg_table text DEFAULT NULL::text, p_where text DEFAULT NULL::text, p_delete_duplicates bool DEFAULT false)
 	RETURNS bool
 	LANGUAGE plpgsql
 	VOLATILE
-AS $$
+AS $$	
 /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2024*/
@@ -79,12 +79,13 @@ v_cnt = ${target_schema}.f_update_table_sql(
  end if;
 
  perform ${target_schema}.f_analyze_table(v_trg_table||'('||array_to_string(v_columns,',')||')');
- case 
-   when v_extr_type = 'DELTA' and v_delta_fld is not null then 
+ if  
+     v_extr_type = 'DELTA' and v_delta_fld is not null then 
      v_end_date = least(${target_schema}.f_get_max_value(p_table_name:= v_src_table, p_field_name := v_delta_fld, p_where := v_where)::timestamp,v_end_date::timestamp);
-   when v_extr_type = 'PARTITION' and v_bdate_fld is not null then 
+ elseif   	
+     v_extr_type = 'PARTITION' and v_bdate_fld is not null then 
      v_end_date = least(${target_schema}.f_get_max_value(p_table_name:= v_src_table, p_field_name := v_bdate_fld, p_where := v_where)::timestamp,v_end_date::timestamp);
- end case;
+ end if;
  perform ${target_schema}.f_update_load_info(
    p_load_id    := p_load_id,
    p_field_name := 'extraction_to',
@@ -109,7 +110,6 @@ v_cnt = ${target_schema}.f_update_table_sql(
    perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
    return false;
 END;
-
 $$
 EXECUTE ON ANY;
 
