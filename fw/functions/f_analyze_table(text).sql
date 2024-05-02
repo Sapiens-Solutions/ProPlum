@@ -7,7 +7,7 @@ AS $$
 	/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
-/*collect statistic on table*/
+/*collect statistic on table or columns*/
 DECLARE
   v_location       text := '${target_schema}.f_analyze_table';
   v_table_name     text;
