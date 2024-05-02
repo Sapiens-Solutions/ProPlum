@@ -250,6 +250,10 @@ databaseChangeLog:
             splitStatements: false
             stripComments: false
         -  sqlFile:
+            path:  .\fw\functions\f_load_simple_update(int8, text, text, text, bool).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
             path:  .\fw\functions\f_merge_tables(text,text,text,_text,text).sql
             splitStatements: false
             stripComments: false

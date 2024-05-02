@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_load_simple(p_load_id int8, p_src_
 	LANGUAGE plpgsql
 	VOLATILE
 AS $$
-    /*Ismailov Dmitry
+	/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
 /*Function starts simple load function */
@@ -30,7 +30,7 @@ DECLARE
   v_extr_sql  text;
   v_merge_key _text;
 BEGIN
-
+ -- function load upsert data from source table into target
  perform ${target_schema}.f_set_session_param(
     p_param_name := '${target_schema}.load_id', 
     p_param_value := p_load_id::text);
@@ -86,12 +86,13 @@ BEGIN
     perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
     return false;
   end if;
- 
+  
   perform ${target_schema}.f_write_log(
      p_log_type    := 'SERVICE', 
      p_log_message := 'Extraction from  '||v_src_table||' into table '||v_tmp_table||', '|| v_cnt||' rows extracted', 
      p_location    := v_location,
      p_load_id     := p_load_id); --log function call
+	 
   if v_cnt > 0 then
      v_res = true;
      perform ${target_schema}.f_update_load_info(
@@ -121,11 +122,23 @@ BEGIN
         p_trg_table := v_trg_table,
         p_delete_duplicates := p_delete_duplicates,
         p_where     := v_where);
-     --v_end_date = least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld,v_where)::timestamp,v_end_date),v_end_date);
-     --perform ${target_schema}.f_update_load_info(
-     --   p_load_id    := p_load_id,
-     --   p_field_name := 'load_to',
-     --   p_value      := v_end_date::text);
+     v_end_date = least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld)::timestamp,v_end_date),v_end_date);
+     perform ${target_schema}.f_update_load_info(
+        p_load_id    := p_load_id,
+        p_field_name := 'load_to',
+        p_value      := v_end_date::text);
+   when v_load_type = 'DELTA_UPDATE' then 
+     v_res = ${target_schema}.f_load_simple_update(
+        p_load_id   := p_load_id, 
+        p_src_table := v_tmp_table,
+        p_trg_table := v_trg_table,
+        p_delete_duplicates := p_delete_duplicates,
+        p_where     := v_where);
+     v_end_date = least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld)::timestamp,v_end_date),v_end_date);
+     perform ${target_schema}.f_update_load_info(
+        p_load_id    := p_load_id,
+        p_field_name := 'load_to',
+        p_value      := v_end_date::text);
    when v_load_type = 'PARTITION' then 
      v_cnt = ${target_schema}.f_load_delta_partitions(
         p_load_id         := p_load_id, 
@@ -163,7 +176,8 @@ BEGIN
         p_trg_table := v_buf_table);
      perform ${target_schema}.f_switch_def_partition(
         p_table_from_name := v_buf_table,
-        p_table_to_name := v_tmp_table);
+        --p_table_to_name := v_tmp_table);
+        p_table_to_name := v_trg_table);       
      v_end_date = least(coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld)::timestamp,v_end_date),v_end_date);
      perform ${target_schema}.f_update_load_info(
         p_load_id    := p_load_id,
@@ -205,7 +219,7 @@ BEGIN
    when v_load_type = 'UPDATE_PARTITION' then 
      v_cnt = ${target_schema}.f_load_delta_partitions(
         p_load_id         := p_load_id, 
-		p_table_from_name := v_tmp_table,
+        p_table_from_name := v_tmp_table,
         p_table_to_name   := v_trg_table,
         p_merge_partitions:= true,
         p_where           := v_where);
