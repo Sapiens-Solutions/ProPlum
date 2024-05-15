@@ -357,6 +357,10 @@ databaseChangeLog:
             path:  .\fw\functions\f_drop_partition_range(text,timestamp,timestamp,bool).sql
             splitStatements: false
             stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_replace_variables(int8,text).sql
+            splitStatements: false
+            stripComments: false
   -  changeSet:
       id:  etl-extentions
       author:  etl-admin
