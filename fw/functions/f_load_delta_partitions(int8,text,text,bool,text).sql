@@ -1,10 +1,9 @@
-CREATE OR REPLACE FUNCTION ${target_schema}.f_load_delta_partitions(p_load_id int8, p_table_from_name text, p_table_to_name text, p_merge_partitions bool, p_where text DEFAULT NULL::text)
+CREATE OR REPLACE FUNCTION ${target_schema}.f_load_delta_partitions(p_load_id int8, p_table_from_name text, p_table_to_name text, p_merge_partitions bool, p_where text DEFAULT NULL::text, p_delete_duplicates bool DEFAULT false)
 	RETURNS int8
 	LANGUAGE plpgsql
 	SECURITY DEFINER
 	VOLATILE
 AS $$
-	
 	/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -47,7 +46,7 @@ begin
     where li.load_id = p_load_id 
     into v_object_id;
   v_schema_name_trg = ${target_schema}.f_get_table_schema(p_table := v_table_to_name);  -- target table schema name
-  v_schema_name = 'stg_'||replace(replace(v_schema_name_trg,'src_',''),'stg_','');-- delta table schema name
+  v_schema_name = 'stg_'||replace(replace(replace(replace(v_schema_name_trg,'src_',''),'stg_',''),'load_',''),'load_','');-- delta table schema name
   v_merge_key   = ${target_schema}.f_get_merge_key(v_object_id);
   v_where_cond = '('||coalesce(p_where, '1=1')||')';
 
@@ -63,8 +62,6 @@ begin
   end if;
   --get delta and bdate fields type
   select coalesce(data_type,'timestamp') from information_schema.columns c where c.table_schema||'.'||c.table_name = v_table_to_name and c.column_name = v_partition_key into v_bdate_fld_type;
-
-  
   -- check if table has records
   v_sql = 'select count(1) from '||v_table_from_name ||' where '||v_where_cond;
   execute v_sql into v_cnt;
@@ -124,12 +121,13 @@ begin
           p_table_to_name   := v_prt_table, 
           p_where           := v_where, 
           p_merge_key       := v_merge_key,
-          p_trg_table       := v_buf_table);
+          p_trg_table       := v_buf_table,
+          p_delete_duplicates := p_delete_duplicates);
        elsif p_merge_partitions = false then
-         v_cnt_prt =  ${target_schema}.f_insert_table(
-              p_table_from := v_table_from_name, 
-              p_table_to   := v_buf_table, 
-              p_where      := v_where);
+         v_sql = 'select '||decode(p_delete_duplicates,true,'distinct','') ||' * from '||v_table_from_name||' where '||v_where;
+         v_cnt_prt = ${target_schema}.f_insert_table_sql(
+              p_table_to := v_buf_table, 
+              p_sql := v_sql);
        end if;
        v_cnt = v_cnt + v_cnt_prt;
        if v_cnt_prt = 0 then 
@@ -159,13 +157,11 @@ begin
      p_load_id     := p_load_id); --log function call
   return v_cnt;
 END;
-
-
 $$
 EXECUTE ON ANY;
 
 -- Permissions
 
-ALTER FUNCTION ${target_schema}.f_load_delta_partitions(int8, text, text, bool, text) OWNER TO "${owner}";
-GRANT ALL ON FUNCTION ${target_schema}.f_load_delta_partitions(int8, text, text, bool, text) TO public;
-GRANT ALL ON FUNCTION ${target_schema}.f_load_delta_partitions(int8, text, text, bool, text) TO "${owner}";
+ALTER FUNCTION ${target_schema}.f_load_delta_partitions(int8, text, text, bool, text, bool) OWNER TO "${owner}";
+GRANT ALL ON FUNCTION ${target_schema}.f_load_delta_partitions(int8, text, text, bool, text, bool) TO public;
+GRANT ALL ON FUNCTION ${target_schema}.f_load_delta_partitions(int8, text, text, bool, text, bool) TO "${owner}";

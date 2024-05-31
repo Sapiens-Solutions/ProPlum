@@ -361,6 +361,10 @@ databaseChangeLog:
             path:  .\fw\functions\f_replace_variables(int8,text).sql
             splitStatements: false
             stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_update_columns(int8,text,_text,text,text).sql
+            splitStatements: false
+            stripComments: false
   -  changeSet:
       id:  etl-extentions
       author:  etl-admin
