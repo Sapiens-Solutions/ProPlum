@@ -1,10 +1,9 @@
-CREATE OR REPLACE FUNCTION ${target_schema}.f_merge_tables(p_table_from_name text, p_table_to_name text, p_where text, p_merge_key _text, p_trg_table text DEFAULT NULL::text)
+CREATE OR REPLACE FUNCTION ${target_schema}.f_merge_tables(p_table_from_name text, p_table_to_name text, p_where text, p_merge_key _text, p_trg_table text DEFAULT NULL::text, p_delete_duplicates bool DEFAULT false)
 	RETURNS int8
 	LANGUAGE plpgsql
 	VOLATILE
 AS $$
-	
-	/*Ismailov Dmitry
+/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
 /*Function merges one table to another by replacing*/
@@ -94,7 +93,7 @@ BEGIN
     'INSERT INTO '||v_buffer_table_name||'
     SELECT '||v_table_cols||'
     FROM (
-    SELECT q.*, rank() over (partition by '||v_merge_key||' order by rnk) as rnk_f
+    SELECT q.*, '||decode(p_delete_duplicates,true,'row_number()','rank()')||' over (partition by '||v_merge_key||' order by rnk) as rnk_f
     FROM (
         SELECT '||v_table_cols||', 1 rnk
         FROM '||v_table_from_name||' f where '||v_where||'
@@ -117,13 +116,10 @@ BEGIN
        p_location    := v_location);
     return v_data_exists;   
 END;
-
-
 $$
 EXECUTE ON ANY;
 
 -- Permissions
-
-ALTER FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text) OWNER TO "${owner}";
-GRANT ALL ON FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text) TO public;
-GRANT ALL ON FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text) TO "${owner}";
+ALTER FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text, bool) OWNER TO "${owner}";
+GRANT ALL ON FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text, bool) TO public;
+GRANT ALL ON FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text, bool) TO "${owner}";
