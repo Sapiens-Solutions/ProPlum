@@ -2,8 +2,8 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_load_simple(p_load_id int8, p_src_
 	RETURNS bool
 	LANGUAGE plpgsql
 	VOLATILE
-AS $$
-/*Ismailov Dmitry
+AS $$		
+	/*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
 /*Function starts simple load function */
@@ -17,13 +17,14 @@ DECLARE
   v_buf_table text;
   v_schema    text;
   v_extraction_type text;
+  v_extraction_to   timestamp;
+  v_extraction_from timestamp;
   v_load_type text;
   v_res       bool;
   v_end_date  timestamp;
   v_delta_fld text;
+  v_date_field text;
   v_bdate_fld text;
-  v_load_from timestamp;
-  v_load_to   timestamp;
   v_where     text;
   v_extr_sql  text;
   v_merge_key _text;
@@ -32,12 +33,18 @@ BEGIN
  perform ${target_schema}.f_set_session_param(
     p_param_name := '${target_schema}.load_id', 
     p_param_value := p_load_id::text);
- select ob.object_id, ob.object_name, li.extraction_type, li.load_type,li.load_to,ob.delta_field,ob.bdate_field, li.load_from, li.load_to
+ select ob.object_id, ob.object_name, li.extraction_type, li.load_type,li.load_to,ob.delta_field,
+        ob.bdate_field,li.extraction_from, li.extraction_to,
+        case coalesce(li.extraction_type, ob.extraction_type) 
+          when 'DELTA' then ob.delta_field
+          when 'PARTITION' then ob.bdate_field
+          else coalesce(ob.delta_field,ob.bdate_field,null)::text
+        end
    from ${target_schema}.objects ob  inner join 
 	    ${target_schema}.load_info li 
 	 on ob.object_id = li.object_id    
    where li.load_id  = p_load_id
-   into v_object_id, v_trg_table, v_extraction_type, v_load_type, v_end_date,v_delta_fld,v_bdate_fld,v_load_from,v_load_to; -- get object_id, target table, load_type
+   into v_object_id, v_trg_table, v_extraction_type, v_load_type, v_end_date,v_delta_fld,v_bdate_fld,v_extraction_from, v_extraction_to,v_date_field; -- get object_id, target table, load_type
   v_src_table  = ${target_schema}.f_unify_name(p_name := p_src_table);
   v_trg_table  = coalesce(${target_schema}.f_unify_name(p_name := p_trg_table),v_trg_table);
   v_schema     = ${target_schema}.f_get_table_schema(p_table := v_trg_table);
@@ -86,10 +93,17 @@ BEGIN
      p_load_id     := p_load_id); --log function call
   if v_cnt is not null then
      v_res = true;
-     perform ${target_schema}.f_update_load_info(
-        p_load_id    := p_load_id, 
-        p_field_name := 'extraction_to', 
-        p_value      := coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_delta_fld)));
+     if v_cnt = 0 then -- in case of empty delta
+        perform ${target_schema}.f_update_load_info(
+          p_load_id    := p_load_id, 
+          p_field_name := 'extraction_to', 
+          p_value      := v_extraction_from::text);
+     else
+        perform ${target_schema}.f_update_load_info(
+          p_load_id    := p_load_id, 
+          p_field_name := 'extraction_to', 
+          p_value      := coalesce(${target_schema}.f_get_max_value(v_tmp_table,v_date_field),v_extraction_to::text));
+     end if;
   else 
      v_res = false;
   end if;
@@ -257,8 +271,6 @@ BEGIN
    perform ${target_schema}.f_set_load_id_error(p_load_id := p_load_id);  
    return false;
 END;
-
-
 $$
 EXECUTE ON ANY;
 
