@@ -7,7 +7,7 @@
 	1) files_path - directory on etl-server from which files will be loaded with gpfdist
 	2) gpfdist_port - gpfdist port on etl-server
 	3) max_parallel_tasks - maximum number of parallel tasks
-4. Replace ${target_schema} in .py files with your framework schema
+4. Replace fw. in .py files with your framework schema
 5. Move .py files into dags directory on Airflow server
 
 ## License
