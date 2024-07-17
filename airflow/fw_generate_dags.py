@@ -243,4 +243,6 @@ for config in dag_configs:
     default_args = {
         'retries': 1
     }
-    create_dag(config,default_args,conn)
+    dags_list.append(create_dag(config,default_args,conn))
+for i in range(len(dags_list)):
+    exec(f'generated_dag{i+1}=dags_list[i]')
