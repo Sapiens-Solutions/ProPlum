@@ -47,7 +47,13 @@ databaseChangeLog:
             path:  .\fw\tables\dependencies.sql
         -  sqlFile:
             path:  .\fw\tables\load_info.sql
-
+        -  sqlFile:
+            path:  .\fw\tables\chains.sql
+        -  sqlFile:
+            path:  .\fw\tables\chains_info.sql
+        -  sqlFile:
+            path:  .\fw\tables\chains_log.sql
+            
   -  changeSet:
       id:  etl-sequences  
       author:  etl-admin  
@@ -56,7 +62,10 @@ databaseChangeLog:
             path:  .\fw\sequences\load_id_seq.sql
         -  sqlFile:
             path:  .\fw\sequences\log_id_seq.sql
-
+        -  sqlFile:
+            path:  .\fw\sequences\chain_log_id_seq.sql
+        -  sqlFile:
+            path:  .\fw\sequences\instance_id_seq.sql
   -  changeSet:
       id:  etl-functions  
       author:  etl-admin  
@@ -365,6 +374,32 @@ databaseChangeLog:
             path:  .\fw\functions\f_update_columns(int8,text,_text,text,text).sql
             splitStatements: false
             stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_write_chain_log(text,text,int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_update_chains_info(int8,text,text).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_set_instance_id_error(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_set_instance_id_in_process(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_set_instance_id_success(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_gen_instance_id(text,timestamp,timestamp).sql
+            splitStatements: false
+            stripComments: false
+            
+            
   -  changeSet:
       id:  etl-extentions
       author:  etl-admin
