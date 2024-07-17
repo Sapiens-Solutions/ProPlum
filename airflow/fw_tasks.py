@@ -1,23 +1,16 @@
-import logging
 import re
 from airflow.exceptions import AirflowFailException
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 from psycopg2.errors import Error
 from psycopg2.sql import SQL, Identifier
-from fw_constants import adwh_conn_id
-import ftplib
-import io
+from constants import adwh_conn_id
 import logging
-from zipfile import ZipFile
-import pandas as pd
-from airflow.decorators import task, task_group
-from airflow.providers.ftp.hooks.ftp import FTPHook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from pandas.errors import EmptyDataError
 
 def gen_load_id(object_id: int):
     logging.info(f"Generate load id for object {object_id}")
-
+    load_from = kwargs["ti"].xcom_pull(task_ids='log_dag_config', key='load_from')
+    load_to = kwargs["ti"].xcom_pull(task_ids='log_dag_config', key='load_to')
+    print(f"load_from= {load_from} , load_to = {load_to}")
     conn = None
     try:
         # create connection
@@ -26,7 +19,7 @@ def gen_load_id(object_id: int):
 
         # execute function f_gen_load_id
         with conn.cursor() as cur:
-            cur.execute("select ${target_schema}.f_gen_load_id(%s)", (object_id,))
+            cur.execute("select fw.f_gen_load_id(%s,%s,%s)", (object_id,load_from,load_to))
             load_id = cur.fetchone()[0]
 
         # log messages
