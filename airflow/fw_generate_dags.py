@@ -116,8 +116,6 @@ def log_dag_end(chain_name,conn,**kwargs):
 
     logging.info(f"instance_id = {instance_id}")
 
-
-
 def fetch_dag_configs(conn):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -191,8 +189,8 @@ def parse_in_group(group_,dag,task_branches,task_branch_index,groups):
                                 # добавление группы заданий в ветку
                                 task_branches[task_branch_index].append(task_group)
                                 task_branch_index += 1
-                                if task_branch_index == max_parallel_tasks:
-                                    task_branch_index = 0
+                               # if task_branch_index == max_parallel_tasks:
+                               #     task_branch_index = 0
                             # create branches 
                 for task_branch in task_branches:
                                 prev = None
@@ -221,8 +219,8 @@ def parse_one(object,dag,task_branches,task_branch_index,groups,parent_group=Non
                         # add group in branch
                         task_branches[task_branch_index].append(task_group)
                         task_branch_index += 1
-                        if task_branch_index == max_parallel_tasks:
-                            task_branch_index = 0
+                      #  if task_branch_index == max_parallel_tasks:
+                      #      task_branch_index = 0
                         # add connections
         for task_branch in task_branches:
                         prev = None
@@ -289,7 +287,6 @@ def create_groups_recursive(parsed_chains,dag,task_branches,groups,task_branch_i
             prev >> group
         prev = group
 
-
 def create_dag(config,default_args,conn):
     shedule = None if config['schedule'] =='None' else config['schedule']
     dag = DAG(
@@ -321,7 +318,7 @@ def create_dag(config,default_args,conn):
         )
         groups = []
         # создание веток заданий
-        task_branches = [[] for i in range(max_parallel_tasks)]
+        task_branches = [[] for i in range(1000)]#range(max_parallel_tasks)]
         task_branch_index = 0
 
         start = EmptyOperator(task_id='start')
@@ -329,8 +326,9 @@ def create_dag(config,default_args,conn):
         groups.append(log_config_task)
         
         create_groups_recursive(parsed_chains,dag,task_branches,groups,task_branch_index,log_task_end)   
-
+        print('generated dag: ',config['job_name'])
     return dag
+
 
 # get dags config
 dag_configs = fetch_dag_configs(conn)
