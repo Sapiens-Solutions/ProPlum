@@ -295,7 +295,7 @@ def create_dag(config,default_args,conn):
     dag = DAG(
         config['job_name'],
         description= config['chain_description'],
-        schedule=shedule,
+        schedule_interval=shedule,
         start_date=datetime(2022, 12, 21, tz="Europe/Moscow"),
         default_args=default_args,
         catchup=False,
@@ -332,14 +332,15 @@ def create_dag(config,default_args,conn):
 
     return dag
 
-
 # get dags config
 dag_configs = fetch_dag_configs(conn)
-
+dags_list=[]
 # Create DAGs from config
 for config in dag_configs:
     dag_id = config['job_name']
     default_args = {
         'retries': 1
     }
-    create_dag(config,default_args,conn)
+    dags_list.append(create_dag(config,default_args,conn))
+for i in range(len(dags_list)):
+    exec(f'generated_dag{i+1}=dags_list[i]')
