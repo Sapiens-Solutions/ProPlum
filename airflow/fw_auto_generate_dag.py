@@ -1,43 +1,13 @@
 from pendulum import datetime, date, time
 from airflow import DAG
-from airflow.models import Variable
-from fw_groups import create_simple_group, create_dependencies_groups, create_task_group
 from airflow.operators.empty import EmptyOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
-from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.operators.weekday import BranchDayOfWeekOperator
-from airflow.operators.datetime import BranchDateTimeOperator
-from airflow.utils.weekday import WeekDay
-from airflow.operators.python import BranchPythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from fw_constants import adwh_conn_id, max_parallel_tasks
 from psycopg2.extras import RealDictCursor
+from fw_groups import create_simple_group, create_dependencies_groups,create_task_group
 import os
-
-import re
-
-import ast
-def parse_chain(chain):
-    """
-    Parse chain like '[1,2]>>3>>4' into list
-    """
-    # split chain by '>>'
-    parts = chain.split('>>')
-    parsed_parts = []
-
-    for part in parts:
-        # Check if it is a part of list
-        if re.match(r'\[.*\]', part):
-            # string to list
-            parsed_parts.append(ast.literal_eval(part))
-        else:
-            # check if digital
-            parsed_parts.append(int(part) if part.isdigit() else part)
-
-    return parsed_parts
-
 
 def fetch_dag_configs(conn):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -59,7 +29,7 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
         default_args=default_args,
         catchup=False,
         max_active_runs=1,
-        tags=["proplum"]
+        tags=["komus"]
     )
     parsed_chains = parse_chain(sequence)
     with dag:
@@ -97,7 +67,7 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
                                         task_branch_index += 1
                                         if task_branch_index == max_parallel_tasks:
                                             task_branch_index = 0
-                                    # create connection    
+                                    # create connection
                         for task_branch in task_branches:
                                         prev = None
                                         for task_group in task_branch:
@@ -126,7 +96,7 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
                                 task_branch_index += 1
                                 if task_branch_index == max_parallel_tasks:
                                     task_branch_index = 0
-                            # create connection  
+                           # create connection
                 for task_branch in task_branches:
                                 prev = None
                                 for task_group in task_branch:
@@ -135,7 +105,6 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
                                     prev = task_group
                 groups.append(task_group)
 
-                                    
         prev = None
         for group in groups:
             if prev is not None:
@@ -158,14 +127,13 @@ def gen_dags():
         }
         create_dag(dag_id, config['chain_description'], config['schedule'], config['sequence'],default_args,conn)      
 
-
 def auto_generate_dag() -> DAG:
     default_args={
           'owner':'airflow'
     }
     dag = DAG(
         'job_auto_generate_dags',
-        description="Автогенерация дагов по таблице chains",
+        description="DAGS generation from chains",
         schedule_interval='* * * * *',
         start_date=datetime(2022, 12, 21, tz="Europe/Moscow"),
         default_args=default_args,
@@ -176,7 +144,6 @@ def auto_generate_dag() -> DAG:
     with dag:
         start = EmptyOperator(task_id='start')
 
- 
         task_gen = BashOperator(
             task_id="gen_dags_from_f_chains",
             #python_callable=test_func,
@@ -186,7 +153,4 @@ def auto_generate_dag() -> DAG:
         start>>task_gen
         return dag
 
-
 job_auto_generate_dag: DAG = auto_generate_dag()
-
-

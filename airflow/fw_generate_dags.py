@@ -4,16 +4,10 @@ from pendulum import datetime, date, time
 from datetime import datetime as dt
 
 from airflow import DAG
-from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
-from airflow.operators.weekday import BranchDayOfWeekOperator
-from airflow.operators.datetime import BranchDateTimeOperator
-from airflow.utils.weekday import WeekDay
-from airflow.operators.python import BranchPythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from fw_constants import adwh_conn_id, max_parallel_tasks
 from psycopg2.extras import RealDictCursor
@@ -21,30 +15,42 @@ from fw_groups import create_simple_group, create_dependencies_groups,create_tas
 import logging
 import re
 
-import ast
 
 
 pg_hook = PostgresHook(postgres_conn_id=adwh_conn_id)
 conn = pg_hook.get_conn()
 
-def parse_chain(chain):
+def process_string(input_string):
     """
     Parse chain like '[1,2]>>3>>4' into list
     """
     # split chain by '>>'
-    parts = chain.split('>>')
-    parsed_parts = []
-
-    for part in parts:
-        # Check if it is a part of list
-        if re.match(r'\[.*\]', part):
-            # string to list
-            parsed_parts.append(ast.literal_eval(part))
-        else:
-            # check if digital
-            parsed_parts.append(int(part) if part.isdigit() else part)
-
-    return parsed_parts
+    pattern = r'(\d*)(>>)(\d*)'
+    
+    def replacer(match):
+        left = match.group(1)
+        right = match.group(3)
+        
+        if left:
+            left = f'[{left}]'
+        if right:
+            right = f'[{right}]'
+        
+        # replace '>>' on ','
+        return f'{left},{right}'
+    
+    try: 
+      if isinstance(eval(re.sub(pattern, replacer, input_string)),list):
+        return check_result(eval(re.sub(pattern, replacer, input_string)))
+      else:
+        return check_result(eval('['+re.sub(pattern, replacer, input_string)+']'))
+    except Exception as ex:
+      return check_result(eval('['+re.sub(pattern, replacer, input_string)+']'))
+def check_result(lst):
+    for i in lst:
+         if not isinstance(i,list):
+              return [lst]
+    return lst
 
 
 def log_dag_config(chain_name,conn,**kwargs):
@@ -110,8 +116,6 @@ def log_dag_end(chain_name,conn,**kwargs):
 
     logging.info(f"instance_id = {instance_id}")
 
-
-
 def fetch_dag_configs(conn):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -121,6 +125,167 @@ def fetch_dag_configs(conn):
             "ORDER BY chain_name"
         )
         return cur.fetchall()
+
+def parse_in_group(group_,dag,task_branches,task_branch_index,groups):
+    # 2nd level
+    gr_id = str(group_)
+    with TaskGroup(
+        group_id=gr_id,
+        tooltip='auto_generate',
+        dag=dag,
+        prefix_group_id=False
+            ) as task_group1:
+        for object in group_:
+            if isinstance(object,list):  # [1,[[1],[2],[3]]],  [[1],[2],[3]]
+                with TaskGroup(
+                    group_id=str(object),
+                    tooltip='auto_generate',
+                    dag=dag,
+                    prefix_group_id=False,
+                    parent_group=task_group1,
+                        ) as task_group2:
+                    all_tasks = []
+                    for obj1 in object: # [1], [2],[3]
+                        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                            cur.execute(
+                            "select object_id, object_name, object_desc, load_method, responsible_mail "
+                            "from fw.objects "
+                            "where "
+                            "object_id = %s ",
+                            (int(obj1[0]),))
+                            objects = cur.fetchall()
+                        #all_tasks = []
+                        for obj in objects:
+                                        task_group=create_task_group(  
+                                        obj=obj,
+                                        dag=dag,
+                                        parent_group=task_group2    
+                                )
+                                        all_tasks.append(task_group)
+                    
+                    # dependencies
+                    for i in range(1, len(all_tasks)):
+                        all_tasks[i-1] >> all_tasks[i]       
+
+            else:  # if only one object
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(
+                    "select object_id, object_name, object_desc, load_method, responsible_mail "
+                    "from fw.objects "
+                    "where "
+                    "object_id = %s ",
+                    (int(object),))
+                    objects = cur.fetchall()
+             #   all_tasks = []
+                for obj in objects:
+                                task_group=create_task_group(  
+                                obj=obj,
+                                dag=dag,
+                                parent_group=task_group1     
+                        )
+             #                   all_tasks.append(task_group)
+             #   for i in range(1, len(all_tasks)):
+             #       all_tasks[i-1] >> all_tasks[i]                    
+                                # добавление группы заданий в ветку
+                                task_branches[task_branch_index].append(task_group)
+                                task_branch_index += 1
+                               # if task_branch_index == max_parallel_tasks:
+                               #     task_branch_index = 0
+                            # create branches 
+                for task_branch in task_branches:
+                                prev = None
+                                for task_group in task_branch:
+                                    if prev is not None:
+                                        prev >> task_group
+                                    prev = task_group
+        groups.append(task_group1)
+        return groups,task_branch_index
+
+def parse_one(object,dag,task_branches,task_branch_index,groups,parent_group=None):
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+            "select object_id, object_name, object_desc, load_method, responsible_mail "
+            "from fw.objects "
+            "where "
+            "object_id = %s ",
+            (int(object),))
+            objects = cur.fetchall()
+        for obj in objects:
+                        task_group=create_task_group(  
+                        obj=obj,
+                        dag=dag,
+                        parent_group=None     
+                )
+                        # add group in branch
+                        task_branches[task_branch_index].append(task_group)
+                        task_branch_index += 1
+                      #  if task_branch_index == max_parallel_tasks:
+                      #      task_branch_index = 0
+                        # add connections
+        for task_branch in task_branches:
+                        prev = None
+                        for task_group in task_branch:
+                            if prev is not None:
+                                prev >> task_group
+                            prev = task_group
+        groups.append(task_group)
+        return groups,task_branch_index
+
+def create_group(parsed_chains,dag,task_branches,groups,task_branch_index,log_task_end):
+   # cur_groups = []
+   # prev_elem  = groups[-1]  # previous elem before current group
+    for i in parsed_chains:
+        # [2,3,4]
+        if isinstance(i,list) and len(i)==1 and not isinstance(i[0],list):
+             groups,task_branch_index=parse_one(i[0],dag,task_branches,task_branch_index,groups)
+             groups[-2]>>groups[-1]
+        else:
+            
+            groups,task_branch_index = parse_in_group(i,dag,task_branches,task_branch_index,groups)
+        '''
+        if isinstance(i,list) and not isinstance(i[0],list):
+             groups,task_branch_index=parse_one(i[0],dag,task_branches,task_branch_index,groups)
+             groups[-2]>>groups[-1]
+             flag = True  # Следующий элемент - ДОЛЖЕН СОЕДИНЯТСЯ ЧЕРЕЗ >>
+             # Пример:  1>>2  => [[1],[2]]  => 1>>2
+             # Если у нас обычный id загрузки, но это список => операция >>.
+             # [1,2,3]   []
+             # [[1],[2],3] - это некорректно. должно быть: [[[1],[2]],3] - группы выделяются ЯВНО.
+        elif not isinstance(i,list):
+            groups,task_branch_index = parse_in_group(parsed_chains,dag,task_branches,task_branch_index,groups)
+
+            # Очень упрощенно - если там есть элементы типа 1,2,3
+            break            
+             # если текущее значение просто ОДИН ЭЛЕМЕНТ, добавление в текущую группу.
+            cur_groups,task_branch_index=parse_one(i,dag,task_branches,task_branch_index,cur_groups)
+
+        elif isinstance(i,list) and isinstance(i[0],list):
+             # Тут нужно создавать подгруппу.
+             create_group(i[0],dag,task_branches,groups,task_branch_index,log_task_end)
+             if flag:  # Если элементы должны соединится последовательно:
+                  groups[-2]>>groups[-1]
+             # Список и элемент тоже список, пример:  [1,[[2],[3]]] => т.е. 1,[2>>3].
+             # 1 >> [2,3]   [[1],[[2,3]]]
+             # это параллельное выполнение двух тасок.
+        '''
+    return groups,task_branch_index
+# 
+def create_groups_recursive(parsed_chains,dag,task_branches,groups,task_branch_index,log_task_end):
+    #parsed_chains= [[1],[[[596],[597]],[[598],[612],[613]],[[600],[610]]],[2]]#[7,[[2],[3],[6]]]
+    #parsed_chains=[[1],[2,3,4],[5]]
+    #parsed_chains=[[1],[2,3,4]]
+    # 1>>[[596>>597],[598>>612>>613],[600>>610]]
+    # [[[596],[597]],[[598],[612],[613]],[[600],610]]]
+    groups,task_branch_index = create_group(parsed_chains,dag,task_branches,groups,task_branch_index,log_task_end)
+    #parse_in_group(parsed_chains,dag,task_branches,task_branch_index,groups)
+
+    groups.append(log_task_end)
+                              
+    prev = None
+    for group in groups:
+        if prev is not None:
+            prev >> group
+        prev = group
 
 def create_dag(config,default_args,conn):
     shedule = None if config['schedule'] =='None' else config['schedule']
@@ -134,16 +299,17 @@ def create_dag(config,default_args,conn):
         max_active_runs=1,
         tags=["proplum"]
     )
-    parsed_chains = parse_chain(config['sequence'])
+    parsed_chains = process_string(config['sequence'])
+    print('PARSED chain=',parsed_chains)
     with dag:
-        # add tasks
+        # start dag
         log_config_task = PythonOperator(
             task_id='log_dag_config',
             python_callable=log_dag_config,
             op_kwargs={'chain_name': config['chain_name'],'conn': conn},
             provide_context=True
         )
-         # finish chain task
+         # end dag
         log_task_end = PythonOperator(
             task_id='log_task_end',
             python_callable=log_dag_end,
@@ -151,92 +317,22 @@ def create_dag(config,default_args,conn):
             provide_context=True
         )
         groups = []
-        # add branches
-        task_branches = [[] for i in range(max_parallel_tasks)]
+        # создание веток заданий
+        task_branches = [[] for i in range(1000)]#range(max_parallel_tasks)]
         task_branch_index = 0
 
         start = EmptyOperator(task_id='start')
         groups.append(start)
         groups.append(log_config_task)
-        for i,group_ in enumerate(parsed_chains):
-            if isinstance(group_,list):
-                with TaskGroup(
-                    group_id=str(i)+"_"+"_".join(map(str, group_)),
-                    prefix_group_id=False,
-                    tooltip='auto_generate',
-                    dag=dag
-                     ) as task_group1:
-                    for object in group_:
-                        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                            cur.execute(
-                            "select object_id, object_name, object_desc, load_method, responsible_mail "
-                            "from fw.objects "
-                            "where "
-                            "object_id = %s ",
-                            (int(object),))
-                            objects = cur.fetchall()
-                        for obj in objects:
-                                        task_group=create_task_group(  
-                                        obj=obj,
-                                        dag=dag,
-                                        parent_group=task_group1   
-                                )
-                                        # add groups in branch
-                                        task_branches[task_branch_index].append(task_group)
-                                        task_branch_index += 1
-                                        if task_branch_index == max_parallel_tasks:
-                                            task_branch_index = 0
-                                    # add connections
-                        for task_branch in task_branches:
-                                        prev = None
-                                        for task_group in task_branch:
-                                            if prev is not None:
-                                                prev >> task_group
-                                            prev = task_group
-                    groups.append(task_group1)
-            else:
-                object = group_
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    cur.execute(
-                    "select object_id, object_name, object_desc, load_method, responsible_mail "
-                    "from fw.objects "
-                    "where "
-                    "object_id = %s ",
-                    (int(object),))
-                    objects = cur.fetchall()
-                for obj in objects:
-                                task_group=create_task_group(  
-                                obj=obj,
-                                dag=dag,
-                                parent_group=None     
-                        )
-                                # add groups in branch
-                                task_branches[task_branch_index].append(task_group)
-                                task_branch_index += 1
-                                if task_branch_index == max_parallel_tasks:
-                                    task_branch_index = 0
-                            # add connections
-                for task_branch in task_branches:
-                                prev = None
-                                for task_group in task_branch:
-                                    if prev is not None:
-                                        prev >> task_group
-                                    prev = task_group
-                groups.append(task_group)
-
-        groups.append(log_task_end)                           
-        prev = None
-        for group in groups:
-            if prev is not None:
-                prev >> group
-            prev = group
-
+        
+        create_groups_recursive(parsed_chains,dag,task_branches,groups,task_branch_index,log_task_end)   
+        print('generated dag: ',config['job_name'])
     return dag
 
 
 # get dags config
 dag_configs = fetch_dag_configs(conn)
-
+dags_list=[]
 # Create DAGs from config
 for config in dag_configs:
     dag_id = config['job_name']
