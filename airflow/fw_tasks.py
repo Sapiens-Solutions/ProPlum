@@ -6,7 +6,7 @@ from constants import adwh_conn_id
 import logging
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-def gen_load_id(object_id: int):
+def gen_load_id(object_id: int,**kwargs):
     logging.info(f"Generate load id for object {object_id}")
     load_from = kwargs["ti"].xcom_pull(task_ids='log_dag_config', key='load_from')
     load_to = kwargs["ti"].xcom_pull(task_ids='log_dag_config', key='load_to')
@@ -103,7 +103,6 @@ def execute_function(func_name: str, task_id: int, **kwargs):
         # logging.error(err.args)
         raise AirflowFailException
 
-
 def calc_data(task_id: int, **kwargs):
     logging.info("Receiving load_id from XCom")
     load_id = kwargs['ti'].xcom_pull(task_ids=task_id)
@@ -196,5 +195,5 @@ def file_load_data(task_id: int, **kwargs):
     mod = __import__(function_name[0], fromlist=[function_name[1]])  # module import
     py_function = getattr(mod, function_name[1])  # function import
     print("Function: ", py_function, " Args: ", *args)
-    py_function(*args)  #add args in function call
+    py_function(*args, load_id=load_id)  #add args in function call
 
