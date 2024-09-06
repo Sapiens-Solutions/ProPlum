@@ -15,12 +15,12 @@ declare
     v_sql          text;
 begin
     v_server = ${target_schema}.f_get_constant('c_log_fdw_server');
-	v_sql = 'update ${target_schema}.chains_info set status = ' || c_success_status::text || ', chain_finish = '''||current_timestamp||''' where instance_id = ' || p_instance_id::text;
+	v_sql = 'update ${target_schema}.chains_info set status = ' || c_success_status::text || ', chain_finish = '''||current_timestamp||''' where instance_id = ' || instance_id::text;
     perform dblink(v_server,v_sql);
     perform ${target_schema}.f_write_chain_log(
        p_log_type := 'SERVICE', 
        p_log_message := 'Set in success instance_id = '||instance_id, 
-       p_instance_id := p_instance_id); --log function call
+       p_instance_id := instance_id); --log function call
 end;
 $$
 EXECUTE ON ANY;
