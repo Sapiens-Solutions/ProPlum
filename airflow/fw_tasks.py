@@ -19,7 +19,7 @@ def gen_load_id(object_id: int,**kwargs):
 
         # execute function f_gen_load_id
         with conn.cursor() as cur:
-            cur.execute("select fw.f_gen_load_id(%s,%s,%s)", (object_id,load_from,load_to))
+            cur.execute("select ${target_schema}.f_gen_load_id(%s,%s,%s)", (object_id,load_from,load_to))
             load_id = cur.fetchone()[0]
 
         # log messages
