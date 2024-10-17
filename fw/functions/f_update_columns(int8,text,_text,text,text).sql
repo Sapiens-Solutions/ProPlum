@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION ${target_schema}.f_update_columns(p_load_id int8, p_table_from_name text, p_column_list _text, p_table_to_name text default null, p_date_field text default null)
+CREATE OR REPLACE FUNCTION ${target_schema}.f_update_columns(p_load_id int8, p_table_from_name text, p_column_list _text, p_table_to_name text DEFAULT NULL::text, p_date_field text DEFAULT NULL::text)
 	RETURNS bool
 	LANGUAGE plpgsql
 	VOLATILE
@@ -188,6 +188,6 @@ EXECUTE ON ANY;
 
 -- Permissions
 
-ALTER FUNCTION ${target_schema}.f_update_columns(int8,text,_text,text,text) OWNER TO "${owner}";
-GRANT ALL ON FUNCTION ${target_schema}.f_update_columns(int8,text,_text,text,text) TO public;
-GRANT ALL ON FUNCTION ${target_schema}.f_update_columns(int8,text,_text,text,text) TO "${owner}";
+ALTER FUNCTION ${target_schema}.f_update_columns(int8, text, _text, text, text) OWNER TO "${owner}";
+GRANT ALL ON FUNCTION ${target_schema}.f_update_columns(int8, text, _text, text, text) TO public;
+GRANT ALL ON FUNCTION ${target_schema}.f_update_columns(int8, text, _text, text, text) TO "${owner}";

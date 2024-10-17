@@ -53,6 +53,8 @@ databaseChangeLog:
             path:  .\fw\tables\chains_info.sql
         -  sqlFile:
             path:  .\fw\tables\chains_log.sql
+        -  sqlFile:
+            path:  .\fw\tables\odata_query_helper.sql
             
   -  changeSet:
       id:  etl-sequences  
@@ -103,7 +105,7 @@ databaseChangeLog:
             splitStatements: false
             stripComments: false
         -  sqlFile:
-            path:  .\fw\functions\f_gen_group_load_id(text, timestamp, timestamp, text, text, interval, timestamp, timestamp).sql
+            path:  .\fw\functions\f_gen_group_load_id(text,timestamp,timestamp,text,text,interval,timestamp,timestamp).sql
             splitStatements: false
             stripComments: false
         -  sqlFile:
@@ -227,7 +229,7 @@ databaseChangeLog:
             splitStatements: false
             stripComments: false
         -  sqlFile:
-            path:  .\fw\functions\f_load_delta_partitions(int8,text,text,bool,text).sql
+            path:  .\fw\functions\f_load_delta_partitions(int8,text,text,bool,text,bool).sql
             splitStatements: false
             stripComments: false
         -  sqlFile:
@@ -259,11 +261,11 @@ databaseChangeLog:
             splitStatements: false
             stripComments: false
         -  sqlFile:
-            path:  .\fw\functions\f_load_simple_update(int8, text, text, text, bool).sql
+            path:  .\fw\functions\f_load_simple_update(int8,text,text,text,bool).sql
             splitStatements: false
             stripComments: false
         -  sqlFile:
-            path:  .\fw\functions\f_merge_tables(text,text,text,_text,text).sql
+            path:  .\fw\functions\f_merge_tables(text,text,text,_text,text,bool).sql
             splitStatements: false
             stripComments: false
         -  sqlFile:
@@ -359,7 +361,7 @@ databaseChangeLog:
             splitStatements: false
             stripComments: false
         -  sqlFile:
-            path:  .\fw\functions\f_create_obj_sql(text, text, text, text, bool, text, bool, bool, text).sql
+            path:  .\fw\functions\f_create_obj_sql(text,text,text,text,bool,text,bool,bool,text).sql
             splitStatements: false
             stripComments: false
         -  sqlFile:
@@ -398,7 +400,38 @@ databaseChangeLog:
             path:  .\fw\functions\f_gen_instance_id(text,timestamp,timestamp).sql
             splitStatements: false
             stripComments: false
-            
+        -  sqlFile:
+            path:  .\fw\functions\f_create_ext_table_for_ch(text,int8,text,text,text,text,text).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_extract_data_for_ch(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_get_ext_ch_table_name(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_get_load_expression_for_ch(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_post_extract_odata(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_prepare_extract_odata(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_prepare_load_to_ch(int8).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_process_extract_odata(int8).sql
+            splitStatements: false
+            stripComments: false
             
   -  changeSet:
       id:  etl-extentions

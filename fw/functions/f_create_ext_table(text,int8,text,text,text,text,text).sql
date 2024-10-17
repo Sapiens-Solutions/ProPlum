@@ -5,6 +5,14 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_create_ext_table(p_table_name text
 	VOLATILE
 AS $$
 	
+	
+	
+	
+	
+	
+	
+	
+	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -92,6 +100,8 @@ BEGIN
     v_sql_conn = ${target_schema}.f_get_connection_string(p_load_id := p_load_id);
    when 'pxf' then
     v_sql_conn = ${target_schema}.f_get_connection_string(p_load_id := p_load_id);
+   when 'odata' then -------------------new
+   	v_sql_conn = ${target_schema}.f_get_connection_string(p_load_id := p_load_id); -----------new
    when 'python' then 
     -- no need to create external table for python load method
      perform ${target_schema}.f_write_log(
@@ -119,15 +129,22 @@ BEGIN
  end if;
 
  -- get columns from template table
-  select string_agg('"'||coalesce(ob.column_name_mapping->>c.column_name,c.column_name)||'"'||' '||
-   case 
-	when data_type = 'time' or data_type = 'time without time zone'  then 'timestamp' 
-	when data_type = 'character' or data_type = 'character varying'  then 'text'--coalesce(data_type||'('||character_maximum_length||')',data_type)
-	when data_type = 'interval'   then 'text'
-	when data_type = 'date'       then v_date_type
-	when data_type ~ 'timestamp%' then v_ts_type
-	else data_type 
-   end,',' order by c.ordinal_position) from information_schema.columns c,
+  select
+			string_agg('"'||coalesce(ob.column_name_mapping->>c.column_name,c.column_name)||'"'||' '||
+		    case 
+				when data_type = 'time' or data_type = 'time without time zone'  then 'timestamp' 
+				when data_type = 'character' or data_type = 'character varying'  then 'text'--coalesce(data_type||'('||character_maximum_length||')',data_type)
+				when data_type = 'interval'   then 'text'
+				when data_type = 'date'       then v_date_type
+				when data_type ~ 'timestamp%' then v_ts_type
+				else data_type 
+		   end,','  order by c.sorting_column
+   ) from
+   (
+   select *, case when 1=0 /*v_load_method = 'gpfdist' or v_load_method = 'odata'*/ then alphabetical_position else ordinal_position end as sorting_column 
+   from
+   	(select *, row_number() over( partition by table_schema, table_name order by column_name) as alphabetical_position from information_schema.columns ) ccc
+   ) c, -----------------------------
    ${target_schema}.objects ob   
    where c.table_schema||'.'||c.table_name = v_full_table_name
      and ob.object_id = v_object_id
@@ -151,6 +168,14 @@ BEGIN
      p_location    := v_location); --log function call
   return v_ext_t_name;
 END
+
+
+
+
+
+
+
+
 
 
 $$

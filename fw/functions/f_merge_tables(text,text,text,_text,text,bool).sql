@@ -120,6 +120,7 @@ $$
 EXECUTE ON ANY;
 
 -- Permissions
+
 ALTER FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text, bool) OWNER TO "${owner}";
 GRANT ALL ON FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text, bool) TO public;
 GRANT ALL ON FUNCTION ${target_schema}.f_merge_tables(text, text, text, _text, text, bool) TO "${owner}";

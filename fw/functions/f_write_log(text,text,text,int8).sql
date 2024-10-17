@@ -4,7 +4,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_write_log(p_log_type text, p_log_m
 	SECURITY DEFINER
 	VOLATILE
 AS $$
-		
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -61,7 +60,6 @@ BEGIN
   v_res := dblink(v_server,v_sql);
  
   END;
-
 
 $$
 EXECUTE ON ANY;

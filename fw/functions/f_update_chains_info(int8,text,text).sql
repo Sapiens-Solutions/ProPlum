@@ -48,7 +48,9 @@ BEGIN
 END;
 $$
 EXECUTE ON ANY;
+
 -- Permissions
+
 ALTER FUNCTION ${target_schema}.f_update_chains_info(int8, text, text) OWNER TO "${owner}";
 GRANT ALL ON FUNCTION ${target_schema}.f_update_chains_info(int8, text, text) TO public;
 GRANT ALL ON FUNCTION ${target_schema}.f_update_chains_info(int8, text, text) TO "${owner}";

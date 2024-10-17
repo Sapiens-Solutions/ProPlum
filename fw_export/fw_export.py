@@ -200,7 +200,7 @@ def export_tables(cur, schema_name, out_dir, params):
         where 
             not a.attisdropped
             and a.attnum > 0
-            and replace(attrelid::regclass::text,'"','') like 'load_hybris.%'
+            and replace(attrelid::regclass::text,'"','') like '{schema_name + '.%'}' 
         group by attrelid::regclass
     ),
     constr as (

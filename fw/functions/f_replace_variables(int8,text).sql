@@ -46,6 +46,6 @@ EXECUTE ON ANY;
 
 -- Permissions
 
-ALTER FUNCTION ${target_schema}.f_replace_variables(int8,text) OWNER TO "${owner}";
-GRANT ALL ON FUNCTION ${target_schema}.f_replace_variables(int8,text) TO public;
-GRANT ALL ON FUNCTION ${target_schema}.f_replace_variables(int8,text) TO "${owner}";
+ALTER FUNCTION ${target_schema}.f_replace_variables(int8, text) OWNER TO "${owner}";
+GRANT ALL ON FUNCTION ${target_schema}.f_replace_variables(int8, text) TO public;
+GRANT ALL ON FUNCTION ${target_schema}.f_replace_variables(int8, text) TO "${owner}";

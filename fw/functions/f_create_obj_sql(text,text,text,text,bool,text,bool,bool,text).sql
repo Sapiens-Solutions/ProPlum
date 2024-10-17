@@ -1,18 +1,8 @@
-CREATE OR REPLACE FUNCTION ${target_schema}.f_create_obj_sql(
-     p_schema_name text,
-     p_obj_name text,
-     p_sql_text text,
-     p_grants_template text default null,
-     p_mat_flg bool DEFAULT true,
-     p_storage_opt text DEFAULT NULL::text, 
-     p_analyze_flg bool DEFAULT true, 
-     p_temporary bool DEFAULT false, 
-     p_distr_cls text DEFAULT NULL::text)
+CREATE OR REPLACE FUNCTION ${target_schema}.f_create_obj_sql(p_schema_name text, p_obj_name text, p_sql_text text, p_grants_template text DEFAULT NULL::text, p_mat_flg bool DEFAULT true, p_storage_opt text DEFAULT NULL::text, p_analyze_flg bool DEFAULT true, p_temporary bool DEFAULT false, p_distr_cls text DEFAULT NULL::text)
 	RETURNS int8
 	LANGUAGE plpgsql
 	SECURITY DEFINER
-	volatile
-	
+	VOLATILE
 AS $$
     /*Ismailov Dmitry
     * Sapiens Solutions 
@@ -107,4 +97,3 @@ EXECUTE ON ANY;
 ALTER FUNCTION ${target_schema}.f_create_obj_sql(text, text, text, text, bool, text, bool, bool, text) OWNER TO "${owner}";
 GRANT ALL ON FUNCTION ${target_schema}.f_create_obj_sql(text, text, text, text, bool, text, bool, bool, text) TO public;
 GRANT ALL ON FUNCTION ${target_schema}.f_create_obj_sql(text, text, text, text, bool, text, bool, bool, text) TO "${owner}";
-

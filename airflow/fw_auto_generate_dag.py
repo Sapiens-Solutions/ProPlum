@@ -123,7 +123,8 @@ def gen_dags():
     for config in dag_configs:
         dag_id = f"{config['job_name']}"
         default_args = {
-            'retries': 1
+            'retries': 1,
+            'retry_delay': datetime.timedelta(seconds=30)
         }
         create_dag(dag_id, config['chain_description'], config['schedule'], config['sequence'],default_args,conn)      
 
@@ -147,7 +148,7 @@ def auto_generate_dag() -> DAG:
         task_gen = BashOperator(
             task_id="gen_dags_from_f_chains",
             #python_callable=test_func,
-            bash_command="python3 /var/lib/airflow/dags/fw_generate_dags.py",
+            bash_command="python3 /opt/airflow/dags/fw_generate_dags.py",
             dag=dag
         )
         start>>task_gen
