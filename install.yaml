@@ -55,7 +55,6 @@ databaseChangeLog:
             path:  .\fw\tables\chains_log.sql
         -  sqlFile:
             path:  .\fw\tables\odata_query_helper.sql
-            
   -  changeSet:
       id:  etl-sequences  
       author:  etl-admin  
@@ -432,7 +431,6 @@ databaseChangeLog:
             path:  .\fw\functions\f_process_extract_odata(int8).sql
             splitStatements: false
             stripComments: false
-            
   -  changeSet:
       id:  etl-extentions
       author:  etl-admin
@@ -445,3 +443,11 @@ databaseChangeLog:
             path:  .\fw\extensions\postgres_fdw.sql
             splitStatements: false
             stripComments: false
+  -  changeSet:
+      id:  etl-views  
+      author:  etl-admin  
+      changes:  
+        -  sqlFile:
+            path:  .\fw\views\load_status_today.sql
+        -  sqlFile:
+            path:  .\fw\views\v_odata_query_helper.sql
