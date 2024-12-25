@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_set_instance_id_error(instance_id 
 	VOLATILE
 AS $$
 	
+	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2024*/
@@ -22,9 +23,12 @@ begin
        p_log_message := 'Set in error instance_id = '||instance_id, 
        p_instance_id     := instance_id); --log function call
 end;
+
 $$
 EXECUTE ON ANY;
+
 -- Permissions
+
 ALTER FUNCTION ${target_schema}.f_set_instance_id_error(int8) OWNER TO "${owner}";
 GRANT ALL ON FUNCTION ${target_schema}.f_set_instance_id_error(int8) TO public;
 GRANT ALL ON FUNCTION ${target_schema}.f_set_instance_id_error(int8) TO "${owner}";

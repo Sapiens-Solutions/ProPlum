@@ -1,8 +1,9 @@
 from airflow import DAG
-from fw_dags import create_tpch_dag, create_single_object_dag_tpch
+from fw_dags import create_tpch_dag, create_single_object_dag_tpch, create_sap_odata_dag
 
 tpch_dag: DAG = create_tpch_dag()
 single_object_dag: DAG = create_single_object_dag_tpch()
+odata_dag: DAG =  create_sap_odata_dag()
 
 
 # if __name__ == "__main__":

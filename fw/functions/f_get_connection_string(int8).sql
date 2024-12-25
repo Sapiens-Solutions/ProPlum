@@ -3,7 +3,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_get_connection_string(p_load_id in
 	LANGUAGE plpgsql
 	VOLATILE
 AS $$
-	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -57,6 +56,8 @@ begin
     case v_load_method 
      when 'gpfdist' then 
       v_sql_conn := v_conn_str;
+     when 'odata'  then 
+     	v_sql_conn := v_conn_str; 
      when 'dblink' then 
       v_sql_conn := v_conn_str;
      when 'pxf' then
@@ -64,6 +65,8 @@ begin
       v_sql_conn :=
       'LOCATION (''pxf://'||v_conn_str||v_part_string||''') ON ALL FORMAT ''CUSTOM'' ( FORMATTER=''pxfwritable_import'' )
        ENCODING ''UTF8''';
+     when 'pxf_ch' then
+      v_sql_conn := v_conn_str; 
      when 'python' then 
     -- no need to create external table for python load method
       perform ${target_schema}.f_write_log(
@@ -86,8 +89,6 @@ begin
         p_load_id     := p_load_id);
     return v_sql_conn;
 END;
-
-
 $$
 EXECUTE ON ANY;
 

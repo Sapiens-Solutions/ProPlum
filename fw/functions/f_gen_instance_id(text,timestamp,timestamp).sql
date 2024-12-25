@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION ${target_schema}.f_gen_instance_id(p_chain_name text, p_load_from timestamp DEFAULT NULL::timestamp, p_load_to timestamp DEFAULT NULL::timestamp)
+CREATE OR REPLACE FUNCTION ${target_schema}.f_gen_instance_id(p_chain_name text, p_load_from timestamp DEFAULT NULL::timestamp without time zone, p_load_to timestamp DEFAULT NULL::timestamp without time zone)
 	RETURNS int8
 	LANGUAGE plpgsql
 	VOLATILE

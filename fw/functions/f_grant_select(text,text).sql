@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_grant_select(p_trg_table_name text
 	VOLATILE
 AS $$
 	
+	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -28,7 +29,7 @@ begin
  execute 'ALTER TABLE ' || v_trg_table_name || ' OWNER TO "'||v_owner||'";';
 
 --get select privileges from src table and apply it to trg table
-SELECT coalesce(STRING_AGG(REPLACE(' GRANT SELECT ON TABLE '||r.table_schema||'.'||r.table_name||' TO "'||r.grantee||'"', lower(v_src_table), lower(v_trg_table_name)),';'),'') into v_result
+SELECT coalesce(STRING_AGG(REPLACE(' GRANT ALL ON TABLE '||r.table_schema||'.'||r.table_name||' TO "'||r.grantee||'"', lower(v_src_table), lower(v_trg_table_name)),';'),'') into v_result
 			FROM information_schema.role_table_grants r
 			LEFT JOIN pg_catalog.pg_partitions p ON r.table_name=p.partitiontablename
 			WHERE p.partitiontablename IS NULL
@@ -38,6 +39,7 @@ SELECT coalesce(STRING_AGG(REPLACE(' GRANT SELECT ON TABLE '||r.table_schema||'.
                          p_log_message := 'End grant select on table '||p_trg_table_name||' from table '||p_src_table, 
                          p_location    := v_location); --log function call
 end;
+
 
 $$
 EXECUTE ON ANY;

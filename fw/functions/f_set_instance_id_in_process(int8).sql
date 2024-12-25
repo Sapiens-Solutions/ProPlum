@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_set_instance_id_in_process(instanc
 	SECURITY DEFINER
 	VOLATILE
 AS $$
+	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2024*/
@@ -21,9 +22,12 @@ begin
        p_log_message := 'Set in process instance_id = '||instance_id, 
        p_instance_id := instance_id); --log function call
 end;
+
 $$
 EXECUTE ON ANY;
+
 -- Permissions
+
 ALTER FUNCTION ${target_schema}.f_set_instance_id_in_process(int8) OWNER TO "${owner}";
 GRANT ALL ON FUNCTION ${target_schema}.f_set_instance_id_in_process(int8) TO public;
 GRANT ALL ON FUNCTION ${target_schema}.f_set_instance_id_in_process(int8) TO "${owner}";
