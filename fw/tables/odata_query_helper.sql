@@ -7,7 +7,7 @@ CREATE TABLE ${target_schema}.odata_query_helper (
 	extraction_to timestamp NULL
 
 )
-DISTRIBUTED BY (load_id)
+DISTRIBUTED BY (load_id);
 
 
 -- Permissions
