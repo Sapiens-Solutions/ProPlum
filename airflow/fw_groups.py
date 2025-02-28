@@ -465,8 +465,7 @@ def truncate_ch_table(object_name: str):
     logging.info(f"Start truncate table {object_name} in ClickHouse")
     command = ''
     try:
-        client = ch_conn.get_client(host='10.2.0.141', port=8123, username='s.shushkov',
-                                    password='3xmgUH9M8bhV2cXldBUo')
+        client = ch_conn.get_client(host='', port=8123, username='', password='')
         object_name = object_name.split('.')[1]
         #command = f"truncate md_dwh.{object_name};"
         command = f"truncate STG.stg_{object_name};"
@@ -512,8 +511,7 @@ def move_data_ch(object_name: str, task_id: int, **kwargs):
             logging.info(msg.strip())
 
         try:
-            client = ch_conn.get_client(host='10.2.0.141', port=8123, username='s.shushkov',
-                                        password='3xmgUH9M8bhV2cXldBUo')
+            client = ch_conn.get_client(host='', port=8123, username='', password='')
             object_name = object_name.split('.')[1]
             command = f"select arrayStringConcat(groupArray(name), ', ') from system.columns where table = '{object_name}' and database = 'ODS'"
             columns = client.command(command)   
