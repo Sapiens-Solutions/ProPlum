@@ -42,11 +42,11 @@ BEGIN
     p_load_id         := p_load_id,
     p_delete_duplicates := p_delete_duplicates,
     p_where           := v_where);
- v_end_date = ${target_schema}.f_get_max_value(v_tmp_table_name,v_delta_fld)::timestamp;
+ /*v_end_date = ${target_schema}.f_get_max_value(v_tmp_table_name,v_delta_fld)::timestamp;
  perform ${target_schema}.f_update_load_info(
     p_load_id    := p_load_id,
     p_field_name := 'load_to',
-    p_value      := v_end_date::text);
+    p_value      := v_end_date::text);*/
    if v_cnt is null then
   	return false;
    end if;
