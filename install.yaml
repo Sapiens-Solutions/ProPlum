@@ -451,3 +451,23 @@ databaseChangeLog:
             path:  .\fw\views\load_status_today.sql
         -  sqlFile:
             path:  .\fw\views\v_odata_query_helper.sql
+  -  changeSet:
+      id:  update-functions-1
+      author:  etl-admin
+      changes:  
+        -  sqlFile:
+            path:  .\fw\functions\f_upsert_table(int8,text,text,bool,bool,text,_text).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_create_date_partitions(text,timestamp,timestamp).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_load_partitions(int8,text,text,bool,_text,text,bool).sql
+            splitStatements: false
+            stripComments: false
+        -  sqlFile:
+            path:  .\fw\functions\f_load_scd2(int8,text,text,_text,_text,text,text,timestamp).sql
+            splitStatements: false
+            stripComments: false
