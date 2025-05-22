@@ -1,4 +1,4 @@
-DROP FUNCTION if exists etl.f_create_date_partitions(text, timestamp);
+DROP FUNCTION if exists ${target_schema}.f_create_date_partitions(text, timestamp);
 
 CREATE OR REPLACE FUNCTION ${target_schema}.f_create_date_partitions(p_table_name text, p_partition_value timestamp, p_limit_value timestamp default null::timestamp)
 	RETURNS void

@@ -31,6 +31,7 @@ def create_tpch_dag() -> DAG:
         )
         if dicts_group:
             #for group in dicts_group:
+            #   groups.append(group)
             groups.append(dicts_group)
 
         fact_group = create_simple_group(

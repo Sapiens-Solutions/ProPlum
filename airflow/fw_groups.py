@@ -310,24 +310,24 @@ def create_simple_group(
                 task_branch_index = 0
 
         # kill gpfdist before loading
-        killing_gpfdist = PythonOperator(
-            task_id=f"kill_gpfdist_{load_group.lower()}",
-            python_callable=kill_gpfdist_ssh,
-            op_kwargs={'ssh_conn': ssh_conn_id, 'gpfdist_port': gpfdist_port, 'gpfdist_dir': files_path},
-            dag=dag
-        )
+        #killing_gpfdist = PythonOperator(
+        #    task_id=f"kill_gpfdist_{load_group.lower()}",
+        #    python_callable=kill_gpfdist_ssh,
+        #    op_kwargs={'ssh_conn': ssh_conn_id, 'gpfdist_port': gpfdist_port, 'gpfdist_dir': files_path},
+        #    dag=dag
+        #)
         # start gpfdist before loading
-        starting_gpfdist = PythonOperator(
-            task_id=f"start_gpfdist_{load_group.lower()}",
-            python_callable=start_gpfdist_ssh,
-            op_kwargs={'ssh_conn': ssh_conn_id, 'gpfdist_port': gpfdist_port, 'gpfdist_dir': files_path},
-            dag=dag
-        )
-        killing_gpfdist >> starting_gpfdist
-        for task_branch in task_branches:
-            if task_branch:
-                #killing_gpfdist >> task_branch[0]
-                starting_gpfdist >> task_branch[0]
+        #starting_gpfdist = PythonOperator(
+        #    task_id=f"start_gpfdist_{load_group.lower()}",
+        #    python_callable=start_gpfdist_ssh,
+        #    op_kwargs={'ssh_conn': ssh_conn_id, 'gpfdist_port': gpfdist_port, 'gpfdist_dir': files_path},
+        #    dag=dag
+        #)
+        #killing_gpfdist >> starting_gpfdist
+        #for task_branch in task_branches:
+        #    if task_branch:
+        #        #killing_gpfdist >> task_branch[0]
+        #        starting_gpfdist >> task_branch[0]
 
         # create connection between tasks groups
         for task_branch in task_branches:
@@ -361,8 +361,10 @@ def create_dependencies_groups(
             "from fw.dependencies d "
             "inner join fw.objects o  on d.object_id = o.object_id "
             "inner join fw.objects o2 on d.object_id_depend = o2.object_id "
+            "where o.load_group = %s and o2.load_group = %s "
             "group by o.object_id, d.object_id_depend ) t "
-            "where t.active1 = 1 and t.active2 = 1 "
+            "where t.active1 = 1 and t.active2 = 1 ",
+            (load_group, load_group)
         )
         deps = cur.fetchall()
 
