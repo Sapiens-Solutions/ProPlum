@@ -11,13 +11,14 @@ The repository contains sources of the Greenplum database framework for data ext
 liquibase update --changelog-file=install.yaml --url="jdbc:postgresql://host:port/database" --username="user" --password="password" -Dtarget_schema="target_schema" -Downer="owner"
 ```
 where:
-`host` - greenplum host
-`port` - greenplum port (usually 5432)
-`database` - database in your greenplum
-`user` - user to connect greenlum
-`password` - user's password to connect greenlum
-`target_schema` - schema where framework will be installed
-`owner` - user of framework (for grant command)
+
+- `host` - greenplum host
+- `port` - greenplum port (usually 5432)
+- `database` - database in your greenplum
+- `user` - user to connect greenlum
+- `password` - user's password to connect greenlum
+- `target_schema` - schema where framework will be installed
+- `owner` - user of framework (for grant command)
 
 4. Set up the foreign server for logging (fw/servers/server.sql)
 5. Follow the instructions in Airflow folder to configure airflow DAGs
