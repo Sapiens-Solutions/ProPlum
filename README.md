@@ -23,6 +23,9 @@ where:
 4. Set up the foreign server for logging (fw/servers/server.sql)
 5. Follow the instructions in Airflow folder to configure airflow DAGs
 
+## Usage
+Find the steps to create demo example [here](./example/README.md) 
+
 ## License
 Apache 2.0
 
