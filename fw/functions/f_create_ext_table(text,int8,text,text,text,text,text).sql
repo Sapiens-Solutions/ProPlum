@@ -4,15 +4,6 @@ CREATE OR REPLACE FUNCTION ${target_schema}.f_create_ext_table(p_table_name text
 	SECURITY DEFINER
 	VOLATILE
 AS $$
-	
-	
-	
-	
-	
-	
-	
-	
-	
     /*Ismailov Dmitry
     * Sapiens Solutions 
     * 2023*/
@@ -109,6 +100,13 @@ BEGIN
         p_log_message := 'END Creating external table for table '||v_full_table_name|| '. No need to create external table for python load method', 
         p_location    := v_location); --log function call
      return '';
+   when 'kafka' then 
+    -- no need to create external table for python load method
+     perform ${target_schema}.f_write_log(
+        p_log_type    := 'SERVICE', 
+        p_log_message := 'END Creating external table for table '||v_full_table_name|| '. No need to create external table for '||v_load_method||' load method', 
+        p_location    := v_location); --log function call
+     return '';
    when 'dblink' then 
     -- no need to create external table for dblink load method
      perform ${target_schema}.f_write_log(
@@ -135,6 +133,8 @@ BEGIN
 				when data_type = 'time' or data_type = 'time without time zone'  then 'timestamp' 
 				when data_type = 'character' or data_type = 'character varying'  then 'text'--coalesce(data_type||'('||character_maximum_length||')',data_type)
 				when data_type = 'interval'   then 'text'
+				when lower(data_type) = 'array'   then 'text'
+                when left(data_type,4) = 'json'   then 'text'
 				when data_type = 'date'       then v_date_type
 				when data_type ~ 'timestamp%' then v_ts_type
 				else data_type 
@@ -168,15 +168,6 @@ BEGIN
      p_location    := v_location); --log function call
   return v_ext_t_name;
 END
-
-
-
-
-
-
-
-
-
 
 $$
 EXECUTE ON ANY;
