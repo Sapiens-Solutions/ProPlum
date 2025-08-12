@@ -4,13 +4,12 @@ from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.exceptions import TaskNotFound
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from psycopg2.extras import RealDictCursor
-from fw_constants import adwh_conn_id, max_parallel_tasks
+from fw_constants import adwh_conn_id, max_parallel_tasks, fw_schema
 from fw_tasks import gen_load_id, execute_function, calc_data, file_load_data, kill_gpfdist_ssh
 from fw_tasks import prepare_pipe, start_gpfdist_ssh
 from airflow.providers.ssh.operators.ssh import SSHOperator
 from airflow.operators.bash_operator import BashOperator
 from airflow.models import Variable
-from fw_odata import load_odata_data
 import clickhouse_connect as ch_conn
 from psycopg2.errors import Error
 
@@ -27,10 +26,10 @@ import datetime
 files_path = str(Variable.get("files_path"))  # directory with files on gpfdist server
 gpfdist_port = str(Variable.get("gpfdist_port"))  # gpfdist port
 ADWH_PATH = files_path + "/&"
-inner_pipes_dir = str(Variable.get("inner_pipes_dir"))
-odata_page_size = int(Variable.get("odata_page_size"))
-odata_max_workers = int(Variable.get("odata_max_workers"))
-odata_delimeter = str(Variable.get("odata_delimeter"))
+#inner_pipes_dir = str(Variable.get("inner_pipes_dir"))
+#odata_page_size = int(Variable.get("odata_page_size"))
+#odata_max_workers = int(Variable.get("odata_max_workers"))
+#odata_delimeter = str(Variable.get("odata_delimeter"))
 
 
 # task group for single object
@@ -246,43 +245,43 @@ def create_simple_group(
         object_id_from: int = 0,
         object_id_to: int = 1000000
 ) -> TaskGroup:
-    # create branches
+    # создание веток заданий
     task_branches = [[] for i in range(max_parallel_tasks)]
     task_branch_index = 0
 
-    # create connections
+    # установка соединения
     pg_hook = PostgresHook(postgres_conn_id=adwh_conn_id)
     conn = pg_hook.get_conn()
 
-    # read objects to load
+    # считывание объектов
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # if group = single_object_group, then single object load
+        # если группа = single_object_group, то это даг для отдельного объекта и фильтр по группе не нужен
         if load_group != "single_object_group":
             cur.execute(
                 "select object_id, object_name, object_desc, load_method, responsible_mail "
-                "from fw.objects "
+                "from %s.objects "
                 "where "
                 "load_group = %s "
                 "and object_id >= %s "
                 "and object_id <= %s "
                 "and active is true "
                 "order by object_id",
-                (load_group, object_id_from, object_id_to)
+                (fw_schema,load_group, object_id_from, object_id_to)
             )
         else:
             cur.execute(
                 "select object_id, object_name, object_desc, load_method, responsible_mail "
-                "from fw.objects "
+                "from %s.objects "
                 "where "
                 "object_id >= %s "
                 "and object_id <= %s "
                 # "and active is true "
                 "order by object_id",
-                (object_id_from, object_id_to)
+                (fw_schema,object_id_from, object_id_to)
             )
         objects = cur.fetchall()
 
-    # close connection
+    # закрытие соединения
     conn.close()
 
     if not objects:
@@ -296,40 +295,20 @@ def create_simple_group(
     ) as load_task_group:
 
         for obj in objects:
-            # task group for functions
+            # создание группы с заданиями для функций
             task_group = create_task_group(
                 obj=obj,
                 dag=dag,
                 parent_group=load_task_group
             )
 
-            # add tasks group into branch
+            # добавление группы заданий в ветку
             task_branches[task_branch_index].append(task_group)
             task_branch_index += 1
             if task_branch_index == max_parallel_tasks:
                 task_branch_index = 0
 
-        # kill gpfdist before loading
-        #killing_gpfdist = PythonOperator(
-        #    task_id=f"kill_gpfdist_{load_group.lower()}",
-        #    python_callable=kill_gpfdist_ssh,
-        #    op_kwargs={'ssh_conn': ssh_conn_id, 'gpfdist_port': gpfdist_port, 'gpfdist_dir': files_path},
-        #    dag=dag
-        #)
-        # start gpfdist before loading
-        #starting_gpfdist = PythonOperator(
-        #    task_id=f"start_gpfdist_{load_group.lower()}",
-        #    python_callable=start_gpfdist_ssh,
-        #    op_kwargs={'ssh_conn': ssh_conn_id, 'gpfdist_port': gpfdist_port, 'gpfdist_dir': files_path},
-        #    dag=dag
-        #)
-        #killing_gpfdist >> starting_gpfdist
-        #for task_branch in task_branches:
-        #    if task_branch:
-        #        #killing_gpfdist >> task_branch[0]
-        #        starting_gpfdist >> task_branch[0]
-
-        # create connection between tasks groups
+        # создание связей между заданиями
         for task_branch in task_branches:
             prev = None
             for task_group in task_branch:
@@ -358,13 +337,12 @@ def create_dependencies_groups(
             "select t.object_id, t.object_id_depend "
             "from ( select o.object_id, case when o.active is true then 1 else 0 end as active1, "
             "min(case when o2.active is true then 1 else 0 end) as active2, d.object_id_depend "
-            "from fw.dependencies d "
-            "inner join fw.objects o  on d.object_id = o.object_id "
-            "inner join fw.objects o2 on d.object_id_depend = o2.object_id "
-            "where o.load_group = %s and o2.load_group = %s "
+            "from %s.dependencies d "
+            "inner join %s.objects o  on d.object_id = o.object_id "
+            "inner join %s.objects o2 on d.object_id_depend = o2.object_id "
             "group by o.object_id, d.object_id_depend ) t "
             "where t.active1 = 1 and t.active2 = 1 ",
-            (load_group, load_group)
+            (fw_schema,fw_schema,fw_schema)
         )
         deps = cur.fetchall()
 
@@ -378,13 +356,13 @@ def create_dependencies_groups(
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "select object_id, object_name, object_desc, load_method, responsible_mail "
-            "from fw.objects "
+            "from %s.objects "
             "where load_group = %s "
             "and object_id >= %s "
             "and object_id <= %s "
             "and active is true "
             "order by object_id",
-            (load_group, object_id_from, object_id_to)
+            (fw_schema,load_group, object_id_from, object_id_to)
         )
         objects = cur.fetchall()
 
@@ -469,7 +447,6 @@ def truncate_ch_table(object_name: str):
     try:
         client = ch_conn.get_client(host='', port=8123, username='', password='')
         object_name = object_name.split('.')[1]
-        #command = f"truncate md_dwh.{object_name};"
         command = f"truncate STG.stg_{object_name};"
         client.command(command)
     except Exception as e:
@@ -491,9 +468,9 @@ def move_data_ch(object_name: str, task_id: int, **kwargs):
 
         logging.info(f"Get load_type and delta_field for object {object_name.split('.')[1]}")
         with conn.cursor() as cur:
-            cur.execute(f"select object_id from fw.load_info where load_id = {load_id}")
+            cur.execute(f"select object_id from {fw_schema}.load_info where load_id = {load_id}")
             obj_id = cur.fetchone()[0]
-            cur.execute(f"select load_type, coalesce(array_to_string(merge_key, ','), '') as merge_key from fw.objects where object_id = {obj_id}")
+            cur.execute(f"select load_type, coalesce(array_to_string(merge_key, ','), '') as merge_key from {fw_schema}.objects where object_id = {obj_id}")
             row = cur.fetchone()
             load_type, merge_key = row
             print(f"load_type= {load_type}")
@@ -558,7 +535,7 @@ def move_data_ch(object_name: str, task_id: int, **kwargs):
             logging.info(f"Update load_status for load {load_id}")
             # execute function f_set_load_id_success
             with conn.cursor() as cur:
-                cur.execute(f"select fw.f_set_load_id_success({load_id})")
+                cur.execute(f"select {fw_schema}.f_set_load_id_success({load_id})")
                 load_id = cur.fetchone()[0]
 
             logging.info(f"End move data in CH")
@@ -570,7 +547,7 @@ def move_data_ch(object_name: str, task_id: int, **kwargs):
             logging.info(f"Update load_status for load {load_id}")
             # execute function f_set_load_id_success
             with conn.cursor() as cur:
-                cur.execute(f"select fw.f_set_load_id_error({load_id})")
+                cur.execute(f"select {fw_schema}.f_set_load_id_error({load_id})")
                 load_id = cur.fetchone()[0]
             raise AirflowFailException(e)
 
@@ -602,7 +579,7 @@ def get_odata_service(obj_id):
 
     # read objects to load
     with conn.cursor() as cur:
-        cmd = f"select additional from fw.ext_tables_params where object_id = {obj_id} "
+        cmd = f"select additional from {fw_schema}.ext_tables_params where object_id = {obj_id} "
         cur.execute(cmd)
         objects = cur.fetchall()
 
@@ -614,8 +591,8 @@ def get_odata_service(obj_id):
 
 
 
-######################################3
-
+######################################
+"""
 def kill_gpfdist_ssh_predefined(load_id=None):
         ssh_conn_local = ssh_conn_id
         gpfdist_port_local = gpfdist_port
@@ -637,7 +614,7 @@ def start_gpfdist_ssh_predefined(load_id=None):
             gpfdist_port=gpfdist_port_local,
             gpfdist_dir=gpfdist_dir_local   
         )
-
+"""
 
 
 #######################################

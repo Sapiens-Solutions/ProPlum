@@ -31,7 +31,6 @@ def create_tpch_dag() -> DAG:
         )
         if dicts_group:
             #for group in dicts_group:
-            #   groups.append(group)
             groups.append(dicts_group)
 
         fact_group = create_simple_group(
@@ -62,7 +61,7 @@ def create_single_object_dag_tpch() -> DAG:
             tags=["demo"]
     ) as dag:
         object_id = int(Variable.get("single_object_tpch"))
-
+        
         create_simple_group(
             "single_object_group",
             "Load single object",
@@ -129,3 +128,4 @@ def create_sap_odata_dag() -> DAG:
             prev = group
 
     return dag
+

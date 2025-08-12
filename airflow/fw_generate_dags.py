@@ -9,7 +9,7 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from fw_constants import adwh_conn_id, max_parallel_tasks
+from fw_constants import adwh_conn_id, max_parallel_tasks, fw_schema
 from psycopg2.extras import RealDictCursor
 from fw_groups import create_simple_group, create_dependencies_groups,create_task_group
 import logging
@@ -64,7 +64,7 @@ def log_dag_config(chain_name,conn,**kwargs):
         if 'instance_id' in conf:
              instance_id = conf['instance_id']
              cur.execute(f'''
-                    select load_from,load_to from fw.chains_info where instance_id = {instance_id}
+                    select load_from,load_to from {fw_schema}.chains_info where instance_id = {instance_id}
                     '''
                 )
              record=cur.fetchall()[0]
@@ -73,21 +73,21 @@ def log_dag_config(chain_name,conn,**kwargs):
         else:
             if 'load_from' in conf and 'load_to' in conf: 
                 cur.execute(f'''
-                    select fw.f_gen_instance_id('{chain_name}','{conf['load_from']}','{conf['load_to']}')
+                    select {fw_schema}.f_gen_instance_id('{chain_name}','{conf['load_from']}','{conf['load_to']}')
                     '''
                 )
                 load_from=conf['load_from']
                 load_to=conf['load_to']
             else:  
                 cur.execute(f'''
-                    select fw.f_gen_instance_id('{chain_name}')
+                    select {fw_schema}.f_gen_instance_id('{chain_name}')
                     '''
                 )
             instance_id=cur.fetchall()
             instance_id=instance_id[0]['f_gen_instance_id']
             conn.commit() 
         cur.execute(f'''
-             select fw.f_set_instance_id_in_process({instance_id})
+             select {fw_schema}.f_set_instance_id_in_process({instance_id})
              '''
         ) 
     # save instance_id in XCom
@@ -109,7 +109,7 @@ def log_dag_end(chain_name,conn,**kwargs):
     instance_id = kwargs["ti"].xcom_pull(task_ids='log_dag_config', key='instance_id')
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(f'''
-             select fw.f_set_instance_id_success({instance_id})
+             select {fw_schema}.f_set_instance_id_success({instance_id})
              '''
         ) 
         conn.commit() 
@@ -120,9 +120,10 @@ def fetch_dag_configs(conn):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "SELECT chain_name, chain_description, schedule, job_name, sequence "
-            "FROM fw.chains "
+            "FROM %s.chains "
             "WHERE active "
-            "ORDER BY chain_name"
+            "ORDER BY chain_name",
+            (str(fw_schema),)
         )
         return cur.fetchall()
 
@@ -149,10 +150,10 @@ def parse_in_group(group_,dag,task_branches,task_branch_index,groups):
                         with conn.cursor(cursor_factory=RealDictCursor) as cur:
                             cur.execute(
                             "select object_id, object_name, object_desc, load_method, responsible_mail "
-                            "from fw.objects "
+                            "from %s.objects "
                             "where "
                             "object_id = %s ",
-                            (int(obj1[0]),))
+                            (str(fw_schema),int(obj1[0]),))
                             objects = cur.fetchall()
                         #all_tasks = []
                         for obj in objects:
@@ -171,10 +172,10 @@ def parse_in_group(group_,dag,task_branches,task_branch_index,groups):
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute(
                     "select object_id, object_name, object_desc, load_method, responsible_mail "
-                    "from fw.objects "
+                    "from %s.objects "
                     "where "
                     "object_id = %s ",
-                    (int(object),))
+                    (str(fw_schema),int(object),))
                     objects = cur.fetchall()
              #   all_tasks = []
                 for obj in objects:
@@ -205,10 +206,10 @@ def parse_one(object,dag,task_branches,task_branch_index,groups,parent_group=Non
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
             "select object_id, object_name, object_desc, load_method, responsible_mail "
-            "from fw.objects "
+            "from %s.objects "
             "where "
             "object_id = %s ",
-            (int(object),))
+            (str(fw_schema),int(object),))
             objects = cur.fetchall()
         for obj in objects:
                         task_group=create_task_group(  
