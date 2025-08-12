@@ -2,14 +2,14 @@ import re
 from airflow.exceptions import AirflowFailException
 from psycopg2.errors import Error
 from psycopg2.sql import SQL, Identifier
-from fw_constants import adwh_conn_id
+from fw_constants import adwh_conn_id, fw_schema
 import logging
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import os
 import time
 import subprocess
-from airflow.providers.ssh.operators.ssh import SSHOperator
-from airflow.providers.ssh.hooks.ssh import SSHHook
+#from airflow.providers.ssh.operators.ssh import SSHOperator
+#from airflow.providers.ssh.hooks.ssh import SSHHook
 
 def gen_load_id(object_id: int, **kwargs):
     logging.info(f"Generate load id for object {object_id}")
@@ -24,7 +24,7 @@ def gen_load_id(object_id: int, **kwargs):
 
         # execute function f_gen_load_id
         with conn.cursor() as cur:
-            cur.execute("select fw.f_gen_load_id(%s,%s,%s)", (object_id,load_from,load_to))
+            cur.execute("select %s.f_gen_load_id(%s,%s,%s)", (fw_schema,object_id,load_from,load_to))
             load_id = cur.fetchone()[0]
 
         # log messages
@@ -78,10 +78,10 @@ def execute_function(func_name: str, task_id: int, **kwargs):
         # execute framework function
         with conn.cursor() as cur:
             cur.execute(
-                SQL("select fw.{func_name}(%s)").format(
+                SQL("select %s.{func_name}(%s)").format(
                     func_name=Identifier(func_name)
                 ),
-                (load_id,)
+                (fw_schema,load_id,)
             )
             ok = cur.fetchone()[0]
 
@@ -131,8 +131,8 @@ def calc_data(task_id: int, **kwargs):
     with conn.cursor() as cur:
         cur.execute(
             (f"""select o.load_function_name
-                    from fw.objects o
-                    join fw.load_info l  on
+                    from {fw_schema}.objects o
+                    join {fw_schema}.load_info l  on
                     o.object_id = l.object_id 
                     where l.load_id  = {load_id}""")
         )
@@ -173,8 +173,8 @@ def file_load_data(task_id: int, **kwargs):
     with conn.cursor() as cur:
         cur.execute(
             (f"""select o.load_function_name
-                    from fw.objects o
-                    join fw.load_info l  on
+                    from {fw_schema}.objects o
+                    join {fw_schema}.load_info l  on
                     o.object_id = l.object_id 
                     where l.load_id  = {load_id}""")
         )
@@ -224,7 +224,7 @@ def prepare_pipe(inner_pipe_path):
         raise AirflowFailException
     
 
-
+"""
 def start_gpfdist_ssh(ssh_conn, gpfdist_dir, gpfdist_port, run = True ):
     hook = SSHHook(ssh_conn_id = ssh_conn)
     conn = hook.get_conn()
@@ -320,5 +320,5 @@ def kill_gpfdist_ssh(ssh_conn, gpfdist_dir, gpfdist_port, run = True ):
         logging.info(f'gpfdist на порту {gpfdist_port} был остановлен')
     else:
         logging.info(f'gpfdist на порту {gpfdist_port} НЕ был остановлен')
-    
+"""
 

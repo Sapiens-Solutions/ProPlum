@@ -4,7 +4,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.utils.task_group import TaskGroup
 from airflow.operators.bash import BashOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from fw_constants import adwh_conn_id, max_parallel_tasks
+from fw_constants import adwh_conn_id, max_parallel_tasks, fw_schema
 from psycopg2.extras import RealDictCursor
 from fw_groups import create_simple_group, create_dependencies_groups,create_task_group
 import os
@@ -13,9 +13,10 @@ def fetch_dag_configs(conn):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             "SELECT chain_name, chain_description, schedule, job_name, sequence "
-            "FROM fw.chains "
+            "FROM %s.chains "
             "WHERE active "
-            "ORDER BY chain_name"
+            "ORDER BY chain_name",
+            (str(fw_schema),)
         )
         return cur.fetchall()
 
@@ -29,7 +30,7 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
         default_args=default_args,
         catchup=False,
         max_active_runs=1,
-        tags=["komus"]
+        tags=["proplum"]
     )
     parsed_chains = parse_chain(sequence)
     with dag:
@@ -51,10 +52,10 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
                         with conn.cursor(cursor_factory=RealDictCursor) as cur:
                             cur.execute(
                             "select object_id, object_name, object_desc, load_method, responsible_mail "
-                            "from fw.objects "
+                            "from %s.objects "
                             "where "
                             "object_id = %s ",
-                            (int(object),))
+                            (str(fw_schema),int(object),))
                             objects = cur.fetchall()
                         for obj in objects:
                                         task_group=create_task_group(  
@@ -80,10 +81,10 @@ def create_dag(dag_id, description, schedule_interval,sequence,default_args,conn
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute(
                     "select object_id, object_name, object_desc, load_method, responsible_mail "
-                    "from fw.objects "
+                    "from %s.objects "
                     "where "
                     "object_id = %s ",
-                    (int(object),))
+                    (str(fw_schema),int(object),))
                     objects = cur.fetchall()
                 for obj in objects:
                                 task_group=create_task_group(  
